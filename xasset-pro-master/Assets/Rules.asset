@@ -12,126 +12,35 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 03142c330ced64e0ab46cddcd0484ab7, type: 3}
   m_Name: Rules
   m_EditorClassIdentifier: 
-  build: 55
-  major: 5
-  minor: 1
+  build: 1
+  major: 0
+  minor: 0
   scenesFolders:
   - Assets/XAsset
-  autoRecord: 1
-  autoGroupByDirectories:
-  - Assets/XAsset/Demo/UI/Sprites
+  autoRecord: 0
+  autoGroupByDirectories: []
   validateAssetPath: 0
   allAssetsToBuild: 0
-  patchesInBuild:
-  - Init
-  - Splash
-  - Title
-  scenesInBuild:
-  - {fileID: 102900000, guid: b3b41d8cebde9274f8b684adec633a95, type: 3}
-  extension: .bundle
+  patchesInBuild: []
+  scenesInBuild: []
+  extension: 
   nameByHash: 0
   options: 256
-  assets:
-  - name: Assets/XAsset/Demo/Scenes/Splash.unity
-    group: 
-    bundle: assets_xasset_demo_scenes_splash.bundle
+  assetBuildList:
+  - assetName: Assets/XAsset/Extend/TestImage/Btn_Tab1_n 1.png
+    groupName: 
+    bundleName: assets_xasset_extend_testimage
     id: 0
-    groupBy: 2
-  - name: Assets/XAsset/Demo/Scenes/Title.unity
-    group: 
-    bundle: assets_xasset_demo_scenes_title.bundle
+    groupBy: 3
+  - assetName: Assets/XAsset/Extend/TestImage/bg_ItemIntrudction 1.png
+    groupName: 
+    bundleName: assets_xasset_extend_testimage
     id: 0
-    groupBy: 2
-  - name: Assets/XAsset/Demo/UI/Prefabs/MessageBox.prefab
-    group: 
-    bundle: assets_xasset_demo_ui_prefabs_messagebox.bundle
-    id: 0
-    groupBy: 2
-  - name: Assets/XAsset/Demo/UI/Prefabs/AboutScreen.prefab
-    group: 
-    bundle: assets_xasset_demo_ui_prefabs_aboutscreen.bundle
-    id: 0
-    groupBy: 2
-  - name: Assets/XAsset/Demo/Scenes/Level.unity
-    group: 
-    bundle: assets_xasset_demo_scenes_level.bundle
-    id: 0
-    groupBy: 2
-  patches:
-  - name: Splash
-    assets:
-    - Assets/XAsset/Demo/Scenes/Splash.unity
-  - name: Title
-    assets:
-    - Assets/XAsset/Demo/Scenes/Title.unity
-    - Assets/XAsset/Demo/UI/Prefabs/MessageBox.prefab
-    - Assets/XAsset/Demo/UI/Prefabs/AboutScreen.prefab
-  - name: Level
-    assets:
-    - Assets/XAsset/Demo/Scenes/Level.unity
+    groupBy: 3
+  patches: []
   bundles:
-  - assetBundleName: assets_xasset_demo_scenes_splash.bundle
+  - assetBundleName: assets_xasset_extend_testimage
     assetNames:
-    - Assets/XAsset/Demo/Scenes/Splash.unity
-  - assetBundleName: assets_xasset_demo_scenes_title.bundle
-    assetNames:
-    - Assets/XAsset/Demo/Scenes/Title.unity
-  - assetBundleName: assets_xasset_demo_ui_prefabs_messagebox.bundle
-    assetNames:
-    - Assets/XAsset/Demo/UI/Prefabs/MessageBox.prefab
-  - assetBundleName: assets_xasset_demo_ui_prefabs_aboutscreen.bundle
-    assetNames:
-    - Assets/XAsset/Demo/UI/Prefabs/AboutScreen.prefab
-  - assetBundleName: assets_xasset_demo_scenes_level.bundle
-    assetNames:
-    - Assets/XAsset/Demo/Scenes/Level.unity
-  - assetBundleName: children_assets_xasset_demo_scenes_splash.bundle
-    assetNames:
-    - Assets/XAsset/Demo/UI/Animations/SplashScreen.controller
-    - Assets/XAsset/Demo/UI/Animations/SplashScreen.anim
-    - Assets/XAsset/AppIcon.png
-  - assetBundleName: children_assets_xasset_demo_scenes_title.bundle
-    assetNames:
-    - Assets/XAsset/Demo/UI/Sprites/Title/Title2_bg.png
-    - Assets/XAsset/Demo/UI/Sprites/Title/Btn_User_n.png
-    - Assets/XAsset/Demo/UI/Sprites/Title/Btn_User_h.png
-    - Assets/XAsset/Demo/UI/Animations/TOUCHTOSTART.anim
-    - Assets/XAsset/Demo/UI/Prefabs/UpdateScreen.prefab
-    - Assets/XAsset/Demo/UI/Animations/START.controller
-  - assetBundleName: children_assets_xasset_demo_ui_prefabs_messagebox.bundle
-    assetNames:
-    - Assets/XAsset/Demo/UI/Sprites/MessageBox/Tips.png
-    - Assets/XAsset/Demo/UI/Sprites/MessageBox/Btn_button04_Yellow.png
-    - Assets/XAsset/Demo/Shaders/UIBlur.mat
-    - Assets/XAsset/Demo/UI/Sprites/MessageBox/TitleLine_Left.png
-    - Assets/XAsset/Demo/UI/Animations/MessageBox.controller
-    - Assets/XAsset/Demo/UI/Sprites/MessageBox/TitleLine_Right.png
-    - Assets/XAsset/Demo/UI/Animations/MessageBox.anim
-    - Assets/XAsset/Demo/UI/Sprites/Backgrounds/bg_black.png
-  - assetBundleName: shaders.bundle
-    assetNames:
-    - Assets/XAsset/Demo/Shaders/SimpleGrabPassBlur.shader
-  - assetBundleName: children_assets_xasset_demo_scenes_level.bundle
-    assetNames:
-    - Assets/XAsset/Demo/UI/Prefabs/LevelScreen.prefab
-    - Assets/XAsset/Demo/UI/Sprites/Game/Dropdown_Btn_n.png
-    - Assets/XAsset/Demo/UI/Sprites/Game/Slider2_bg.png
-    - Assets/XAsset/Demo/UI/Sprites/Game/Dropdown_menu_bg.png
-    - Assets/XAsset/Demo/UI/Sprites/Game/Slider2.png
-    - Assets/XAsset/Demo/UI/Sprites/Game/Dropdown_bg_n.png
-    - Assets/XAsset/Demo/UI/Sprites/Game/checkbox_select.png
-    - Assets/XAsset/Demo/UI/Sprites/Game/Btn_Tab1_n.png
-    - Assets/XAsset/Demo/UI/Sprites/Game/bg_ItemIntrudction.png
-    - Assets/XAsset/Demo/UI/Sprites/Game/Dropdown_menu.png
-  - assetBundleName: shared_assets_xasset_demo_ui_sprites_backgrounds.bundle
-    assetNames:
-    - Assets/XAsset/Demo/UI/Sprites/Backgrounds/bg_LoadingPage.png
-  - assetBundleName: shared_assets_xasset_demo_ui_sprites_title.bundle
-    assetNames:
-    - Assets/XAsset/Demo/UI/Sprites/Title/Progress1.png
-    - Assets/XAsset/Demo/UI/Sprites/Title/bg_Progress.png
-    - Assets/XAsset/Demo/UI/Sprites/Title/Progress2.png
-  - assetBundleName: shared_assets_xasset_demo_ui_sprites_messagebox.bundle
-    assetNames:
-    - Assets/XAsset/Demo/UI/Sprites/MessageBox/Btn_button04_n.png
-  currentScene: Title
+    - Assets/XAsset/Extend/TestImage/Btn_Tab1_n 1.png
+    - Assets/XAsset/Extend/TestImage/bg_ItemIntrudction 1.png
+  currentScene: 

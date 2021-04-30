@@ -47,18 +47,18 @@ namespace libx {
             var assets = new List<AssetRef>();
             var searchPaths = new List<string>();
             var dirs = new Dictionary<string, int>();
-            foreach (var asset in rules.assets) {
-                if (!File.Exists(asset.name)) {
+            foreach (var asset in rules.assetBuildList) {
+                if (!File.Exists(asset.assetName)) {
                     continue;
                 }
-                var dir = Path.GetDirectoryName(asset.name);
+                var dir = Path.GetDirectoryName(asset.assetName);
                 if (!string.IsNullOrEmpty(dir)) {
                     if (!searchPaths.Contains(dir)) {
                         dirs[dir] = searchPaths.Count;
                         searchPaths.Add(dir);
                     }
                 }
-                var ar = new AssetRef { name = Path.GetFileName(asset.name), bundle = -1, dir = dirs[dir] };
+                var ar = new AssetRef { name = Path.GetFileName(asset.assetName), bundle = -1, dir = dirs[dir] };
                 assets.Add(ar);
             }
 

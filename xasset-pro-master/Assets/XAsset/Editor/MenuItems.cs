@@ -43,7 +43,7 @@ namespace libx {
         private static void BuildBundles() {
             var watch = new Stopwatch();
             watch.Start();
-            BuildScript.BuildRules();
+            BuildScript.AnalyzeBuildRules();
             BuildScript.BuildAssetBundles();
             watch.Stop();
             Debug.Log("BuildBundles " + watch.ElapsedMilliseconds + " ms.");
@@ -62,7 +62,7 @@ namespace libx {
         private static void BuildRules() {
             var watch = new Stopwatch();
             watch.Start();
-            BuildScript.BuildRules();
+            BuildScript.AnalyzeBuildRules();
             watch.Stop();
             Debug.Log("BuildRules " + watch.ElapsedMilliseconds + " ms.");
         }

@@ -50,11 +50,14 @@ namespace libx {
             EditorUtility.ClearProgressBar();
         }
 
-        internal static void BuildRules() {
-            var rules = GetBuildRules();
-            rules.Build();
+        // 分析 BuildRules
+        internal static void AnalyzeBuildRules() {
+            BuildRules buildRules = GetBuildRules();
+            buildRules.Analyze();
         }
 
+        // 获取 Rules.asset
+        // {BuildRules} 对应 Rules.asset
         internal static BuildRules GetBuildRules() {
             return GetAsset<BuildRules>("Assets/Rules.asset");
         }
@@ -161,8 +164,8 @@ namespace libx {
             var assets = new List<AssetRef>();
             var patches = new List<Patch>();
             var asset2Bundles = new Dictionary<string, BundleRef>();
-            foreach (var item in rules.assets) {
-                var path = item.name;
+            foreach (var item in rules.assetBuildList) {
+                var path = item.assetName;
                 var dir = Path.GetDirectoryName(path);
                 if (!string.IsNullOrEmpty(dir)) {
                     dir = dir.Replace("\\", "/");
@@ -177,7 +180,7 @@ namespace libx {
                     var id = AddBundle(path, asset, ref bundles);
                     asset.bundle = id;
                 } else {
-                    bundle2Ids.TryGetValue(item.bundle, out asset.bundle);
+                    bundle2Ids.TryGetValue(item.bundleName, out asset.bundle);
                 }
                 asset2Bundles[path] = bundles[asset.bundle];
                 asset.dir = index;
@@ -328,6 +331,7 @@ namespace libx {
             }
         }
 
+        // 根据类型和路径获取 对象, 没有就创建
         public static T GetAsset<T>(string path) where T : ScriptableObject {
             var asset = AssetDatabase.LoadAssetAtPath<T>(path);
             if (asset == null) {

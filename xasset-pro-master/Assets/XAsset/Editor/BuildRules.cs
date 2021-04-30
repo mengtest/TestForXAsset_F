@@ -40,10 +40,16 @@ namespace libx {
 
     [Serializable]
     public class AssetBuild {
-        public string name;
-        public string group;
-        public string bundle = string.Empty;
+        // 要打包的文件名
+        // e.g. Assets/XAsset/Extend/TestImage/Btn_Tab1_n 1.png
+        public string assetName; 
+
+        public string groupName;
+        // ab包的名字
+        public string bundleName = string.Empty;
+
         public int id;
+        // 打包规则
         public GroupBy groupBy = GroupBy.Filename;
     }
 
@@ -67,8 +73,16 @@ namespace libx {
 
     public class BuildRules : ScriptableObject {
         private readonly List<string> _duplicated = new List<string>();
+
+        // [asset名, HashSet<bundle名>]
+        // asset 所属的 bundles, 主要是为 计算出_duplicated, 没有别的用处
+        // 如果一个asset被多处引用且没有加入到 _asset2Bundles中， 那这个 asset 就会被加入到 _duplicated
         private readonly Dictionary<string, HashSet<string>> _tracker = new Dictionary<string, HashSet<string>>();
-        private readonly Dictionary<string, string> _asset2Bundles = new Dictionary<string, string>();
+
+        // [asset名, bundle名]
+        // e.g. [Assets/XAsset/Extend/TestImage/Btn_Tab1_n 1.png, assets_xasset_extend_testimage]
+        private readonly Dictionary<string, string> _asset2BundleDict = new Dictionary<string, string>();
+
         private readonly Dictionary<string, string> _unexplicits = new Dictionary<string, string>();
 
         [Header("版本号")]
@@ -99,9 +113,15 @@ namespace libx {
         [Tooltip("打包AB的选项")] public BuildAssetBundleOptions options = BuildAssetBundleOptions.ChunkBasedCompression;
 
         [Header("缓存数据")]
-        [Tooltip("所有要打包的资源")] public List<AssetBuild> assets = new List<AssetBuild>();
-        [Tooltip("所有分包")] public List<PatchBuild> patches = new List<PatchBuild>();
-        [Tooltip("所有打包的资源")] public List<BundleBuild> bundles = new List<BundleBuild>();
+
+        [Tooltip("所有要打包的资源")]
+        public List<AssetBuild> assetBuildList = new List<AssetBuild>();
+
+        [Tooltip("所有分包")]
+        public List<PatchBuild> patches = new List<PatchBuild>();
+
+        [Tooltip("所有打包的资源")]
+        public List<BundleBuild> bundles = new List<BundleBuild>();
 
         public string currentScene;
 
@@ -120,7 +140,7 @@ namespace libx {
                 if (validateAssetPath) {
                     if (assetPath.Contains("Assets")) {
                         if (File.Exists(assetPath)) {
-                            if (!assets.Exists(asset => asset.name.Equals(assetPath))) {
+                            if (!assetBuildList.Exists(asset => asset.assetName.Equals(assetPath))) {
                                 EditorUtility.DisplayDialog("文件大消息不匹配", assetPath, "确定");
                             }
                         } else {
@@ -152,14 +172,14 @@ namespace libx {
         #region API
 
         public AssetBuild GroupAsset(string path, GroupBy groupBy = GroupBy.Filename, string group = null) {
-            var value = assets.Find(assetBuild => assetBuild.name.Equals(path));
+            var value = assetBuildList.Find(assetBuild => assetBuild.assetName.Equals(path));
             if (value == null) {
                 value = new AssetBuild();
-                value.name = path;
-                assets.Add(value);
+                value.assetName = path;
+                assetBuildList.Add(value);
             }
             if (groupBy == GroupBy.Explicit) {
-                value.group = group;
+                value.groupName = group;
             }
             if (IsScene(path)) {
                 currentScene = Path.GetFileNameWithoutExtension(path);
@@ -196,11 +216,16 @@ namespace libx {
             return ver.ToString();
         }
 
-        public void Build() {
+        // 解析 Rules.asset
+        public void Analyze() {
             Clear();
+            // 收集 {BuildRule} 下的 asset
             CollectAssets();
+            // 获取依赖, 分析出 _conflicted, _tracker, _duplicated
             AnalysisAssets();
+            // 优化资源
             OptimizeAssets();
+            // 保存 BuildRules
             Save();
         }
 
@@ -213,26 +238,38 @@ namespace libx {
         #region Private
 
         private string GetGroupName(AssetBuild assetBuild) {
-            return GetGroupName(assetBuild.groupBy, assetBuild.name, assetBuild.group);
+            return GetGroupName(assetBuild.groupBy, assetBuild.assetName, assetBuild.groupName);
         }
 
-        internal bool ValidateAsset(string asset) {
-            if (!asset.StartsWith("Assets/")) return false;
+        // 检查是否是符合规则的文件
+        internal bool ValidateAsset(string assetName) {
+            // 忽略 不在 Assets/ 下的文件
+            if (!assetName.StartsWith("Assets/"))
+                return false;
 
-            var ext = Path.GetExtension(asset).ToLower();
-            return ext != ".dll" && ext != ".cs" && ext != ".meta" && ext != ".js" && ext != ".boo";
+            // 获取后缀名
+            string ext = Path.GetExtension(assetName).ToLower();
+            // 不处理 .dll, .cs, .meta, .js, .boo
+            return ext != ".dll" 
+                && ext != ".cs" 
+                && ext != ".meta" 
+                && ext != ".js" 
+                && ext != ".boo";
         }
 
-        private bool IsScene(string asset) {
-            return asset.EndsWith(".unity");
+        // 是否是场景
+        private bool IsScene(string assetName) {
+            return assetName.EndsWith(".unity");
         }
 
-        private string GetGroupName(GroupBy groupBy, string asset, string group = null, bool isChildren = false, bool isShared = false) {
-            if (asset.EndsWith(".shader")) {
-                group = "shaders";
+        // 获取文件的组名
+        private string GetGroupName(GroupBy groupBy, string assetName, string groupName = null, bool isChildren = false, bool isShared = false) {
+            // 特殊处理 shader 的 组名  固定为 shaders
+            if (assetName.EndsWith(".shader")) {
+                groupName = "shaders";
                 groupBy = GroupBy.Explicit;
                 isChildren = false;
-            } else if (IsScene(asset)) {
+            } else if (IsScene(assetName)) {
                 groupBy = GroupBy.Filename;
             }
 
@@ -240,70 +277,84 @@ namespace libx {
                 case GroupBy.Explicit:
                     break;
                 case GroupBy.Filename: {
-                        var assetName = Path.GetFileNameWithoutExtension(asset);
-                        var directoryName = Path.GetDirectoryName(asset).Replace("\\", "/").Replace("/", "_");
-                        group = directoryName + "_" + assetName;
+                        string assetNameNoExt = Path.GetFileNameWithoutExtension(assetName);
+                        string directoryName = Path.GetDirectoryName(assetNameNoExt).Replace("\\", "/").Replace("/", "_");
+                        groupName = directoryName + "_" + assetNameNoExt;
                     }
                     break;
+                // 将 asset 以 文件夹的方式打包为 bundle
                 case GroupBy.Directory: {
-                        var directoryName = Path.GetDirectoryName(asset).Replace("\\", "/").Replace("/", "_");
-                        group = directoryName;
+                        // assetName    e.g. Assets/XAsset/Extend/TestImage/Btn_Tab1_n 1.png
+                        // directoryName    e.g. Assets_XAsset_Extend_TestImage
+                        string directoryName = Path.GetDirectoryName(assetName).Replace("\\", "/").Replace("/", "_");
+                        groupName = directoryName;
                         break;
                     }
             }
 
             if (isChildren) {
-                return "children_" + group;
+                return "children_" + groupName;
             }
 
             if (isShared) {
-                group = "shared_" + group;
+                groupName = "shared_" + groupName;
             }
-            return (nameByHash ? Utility.GetMD5Hash(group) : group.TrimEnd('_').ToLower()) + extension;
+            return (nameByHash ? Utility.GetMD5Hash(groupName) : groupName.TrimEnd('_').ToLower()) + extension;
         }
 
-        private void Track(string asset, string bundle) {
+        private void Track(string assetName, string bundleName) {
             HashSet<string> hashSet;
-            if (!_tracker.TryGetValue(asset, out hashSet)) {
+
+            if (!_tracker.TryGetValue(assetName, out hashSet)) {
                 hashSet = new HashSet<string>();
-                _tracker.Add(asset, hashSet);
+                _tracker.Add(assetName, hashSet);
             }
-            hashSet.Add(bundle);
-            string bundleName;
-            _asset2Bundles.TryGetValue(asset, out bundleName);
-            if (string.IsNullOrEmpty(bundleName)) {
-                _unexplicits[asset] = GetGroupName(GroupBy.Explicit, asset, bundle, true);
+
+            hashSet.Add(bundleName);
+
+            string bundleNameTemp;
+            _asset2BundleDict.TryGetValue(assetName, out bundleNameTemp);
+            if (string.IsNullOrEmpty(bundleNameTemp)) {
+                _unexplicits[assetName] = GetGroupName(GroupBy.Explicit, assetName, bundleName, true);
                 if (hashSet.Count > 1) {
-                    _duplicated.Add(asset);
+                    _duplicated.Add(assetName);
                 }
             }
         }
 
+        // 将 assetName 和 assetBundleName 的 对应关系 存储到 _asset2Bundles
         private void BundleAsset(string assetName, string assetBundleName) {
+            // 如果 是场景文件, 要重新
             if (IsScene(assetName)) {
                 assetBundleName = GetGroupName(GroupAsset(assetName));
             }
 
-            _asset2Bundles[assetName] = assetBundleName;
+            // e.g. [Assets/XAsset/Extend/TestImage/Btn_Tab1_n 1.png, assets_xasset_extend_testimage]
+            _asset2BundleDict[assetName] = assetBundleName;
         }
 
         private void Clear() {
             _unexplicits.Clear();
             _tracker.Clear();
             _duplicated.Clear();
-            _asset2Bundles.Clear();
+            _asset2BundleDict.Clear();
         }
 
+        // 将 一对一的  [assetName, bundleName] 转化为 [bundleName, List<assetName>]
         private Dictionary<string, List<string>> GetBundles() {
-            var dictionary = new Dictionary<string, List<string>>();
-            foreach (var item in _asset2Bundles) {
-                var bundle = item.Value;
+            Dictionary<string, List<string>> dictionary = new Dictionary<string, List<string>>();
+
+            foreach (KeyValuePair<string, string> item in _asset2BundleDict) {
+                string bundle = item.Value;
                 List<string> list;
+
                 if (!dictionary.TryGetValue(bundle, out list)) {
                     list = new List<string>();
                     dictionary[bundle] = list;
                 }
-                if (!list.Contains(item.Key)) list.Add(item.Key);
+
+                if (!list.Contains(item.Key))
+                    list.Add(item.Key);
             }
             return dictionary;
         }
@@ -336,7 +387,7 @@ namespace libx {
         private void OptimizeAssets() {
             foreach (var item in _unexplicits) {
                 if (_tracker[item.Key].Count < 2) {
-                    _asset2Bundles[item.Key] = item.Value;
+                    _asset2BundleDict[item.Key] = item.Value;
                 }
             }
 
@@ -348,60 +399,94 @@ namespace libx {
             }
         }
 
+        // 分析
         private void AnalysisAssets() {
-            var getBundles = GetBundles();
-            var i = 0;
-            foreach (var item in getBundles) {
-                var bundle = item.Key;
-                var tips = string.Format("分析依赖{0}/{1}", i, getBundles.Count);
-                if (EditorUtility.DisplayCancelableProgressBar(tips, bundle, i / (float)getBundles.Count))
+            // 获取 [bundleName, List<assetName>]
+            Dictionary<string, List<string>> bundle2AssetDict = GetBundles();
+
+            int i = 0;
+            foreach (KeyValuePair<string, List<string>> item in bundle2AssetDict) {
+                string bundleName = item.Key;
+
+                var tips = string.Format("分析依赖{0}/{1}", i, bundle2AssetDict.Count);
+
+                if (EditorUtility.DisplayCancelableProgressBar(tips, bundleName, i / (float)bundle2AssetDict.Count))
                     break;
-                var assetPaths = item.Value.ToArray();
-                var dependencies = AssetDatabase.GetDependencies(assetPaths, true);
+
+                // [assetName, ...]
+                string[] assetPaths = item.Value.ToArray();
+
+                // 获取 [assetName, ...] 的依赖文件名（包括自身）
+                string[] dependencies = AssetDatabase.GetDependencies(assetPaths, true);
+
                 if (dependencies.Length > 0)
-                    foreach (var asset in dependencies) {
-                        if (Directory.Exists(asset) || asset.EndsWith(".spriteatlas") || asset.EndsWith(".giparams") || asset.EndsWith("LightingData.asset")) {
+                    foreach (string assetName in dependencies) {
+                        // 不Track .spriteatlas, .giparams, LightingData.asset
+                        if (Directory.Exists(assetName) 
+                            || assetName.EndsWith(".spriteatlas") 
+                            || assetName.EndsWith(".giparams") 
+                            || assetName.EndsWith("LightingData.asset")) {
                             continue;
                         }
-                        if (ValidateAsset(asset)) {
-                            Track(asset, bundle);
+
+                        // 验证文件
+                        if (ValidateAsset(assetName)) {
+                            // 添加到
+                            Track(assetName, bundleName);
                         }
                     }
                 i++;
             }
         }
 
+        // 通过 BuildRule 获得需要打包的文件路径和该文件所属的assetbundle的名称 将其转化为 AssetBuild
         private void CollectAssets() {
-            var list = new List<AssetBuild>();
-            var len = Environment.CurrentDirectory.Length + 1;
-            for (var index = 0; index < assets.Count; index++) {
-                var asset = assets[index];
-                var path = new FileInfo(asset.name);
-                if (path.Exists && ValidateAsset(asset.name)) {
-                    var relativePath = path.FullName.Substring(len).Replace("\\", "/");
-                    if (!relativePath.Equals(asset.name)) {
-                        Debug.LogWarningFormat("检查到路径大小写不匹配！输入：{0}实际：{1}，已经自动修复。", asset.name, relativePath);
-                        asset.name = relativePath;
+            List<AssetBuild> assetBuildList = new List<AssetBuild>();
+
+            // D:\\Projects\\UnityProjects\\TestForXAsset5.1\\xasset-pro-master
+            int len = Environment.CurrentDirectory.Length + 1;
+
+            // 读取 Rules.asset 里的 AssetBuildList
+            for (int index = 0; index < this.assetBuildList.Count; index++) {
+                AssetBuild assetBuild = this.assetBuildList[index];
+                // 通过 文件名  读取文件信息
+                FileInfo fileInfo = new FileInfo(assetBuild.assetName);
+
+                // 存在文件且符合规则
+                if (fileInfo.Exists && ValidateAsset(assetBuild.assetName)) {
+                    // FullName e.g. D:\\Projects\\UnityProjects\\TestForXAsset5.1\\xasset-pro-master\\Assets\\XAsset\\Extend\\TestImage\\Btn_Tab1_n 1.png
+                    // relativePath e.g. Assets/XAsset/Extend/TestImage/Btn_Tab1_n 1.png
+                    string relativePath = fileInfo.FullName.Substring(len).Replace("\\", "/");
+
+                    if (!relativePath.Equals(assetBuild.assetName)) {
+                        Debug.LogWarningFormat("检查到路径大小写不匹配！输入：{0}实际：{1}，已经自动修复。", assetBuild.assetName, relativePath);
+                        assetBuild.assetName = relativePath;
                     }
-                    list.Add(asset);
+                    // 添加到 局部的 AssetBuildList
+                    assetBuildList.Add(assetBuild);
                 }
             }
 
-            for (var i = 0; i < list.Count; i++) {
-                var asset = list[i];
-                if (asset.groupBy == GroupBy.None) {
+            // 处理局部的 AssetBuildList
+            for (int i = 0; i < assetBuildList.Count; i++) {
+
+                AssetBuild assetBuild = assetBuildList[i];
+                // 跳过 GroupBy.None
+                if (assetBuild.groupBy == GroupBy.None) {
                     continue;
                 }
 
-                asset.bundle = GetGroupName(asset);
-                BundleAsset(asset.name, asset.bundle);
+                // 获取 asset 的 GroupName, 设置为 AssetBuild.bundleName
+                assetBuild.bundleName = GetGroupName(assetBuild);
+                BundleAsset(assetBuild.assetName, assetBuild.bundleName);
             }
 
-            assets = list;
+            // 局部 AssetBuildList 赋值给 AssetBuildList
+            this.assetBuildList = assetBuildList;
         }
 
         private void OptimizeAsset(string asset) {
-            _asset2Bundles[asset] = GetGroupName(GroupBy.Directory, asset, null, false, true);
+            _asset2BundleDict[asset] = GetGroupName(GroupBy.Directory, asset, null, false, true);
         }
 
         #endregion
