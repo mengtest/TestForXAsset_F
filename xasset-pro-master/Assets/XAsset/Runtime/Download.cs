@@ -29,10 +29,8 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.Networking;
 
-namespace libx
-{
-    public class Download
-    {
+namespace libx {
+    public class Download {
         private UnityWebRequest _request;
 
         private FileStream _stream;
@@ -51,14 +49,11 @@ namespace libx
 
         public long position { get; set; }
 
-        public string tempPath
-        {
-            get
-            {
+        public string tempPath {
+            get {
                 var path = string.Format("{0}/{1}", Application.temporaryCachePath, hash);
                 var dir = Path.GetDirectoryName(path);
-                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                {
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) {
                     Directory.CreateDirectory(dir);
                 }
 
@@ -70,179 +65,145 @@ namespace libx
 
         public bool canceled { get; private set; }
 
-        public override string ToString()
-        {
+        public override string ToString() {
             return string.Format("{0}, size:{1}, hash:{2}", url, len, hash);
         }
 
-        public void Start()
-        {
+        public void Start() {
             error = null;
             isFinished = false;
             canceled = false;
             _stream = new FileStream(tempPath, FileMode.OpenOrCreate, FileAccess.Write);
             position = _stream.Length;
-            if (position < len)
-            {
+            if (position < len) {
                 _stream.Seek(position, SeekOrigin.Begin);
                 _request = UnityWebRequest.Get(url);
                 _request.SetRequestHeader("Range", "bytes=" + position + "-");
                 _request.downloadHandler = new DownloadHandler(this);
                 _request.SendWebRequest();
-            }
-            else
-            {
+            } else {
                 isFinished = true;
             }
         }
 
-        public void Pause()
-        {
+        public void Pause() {
             Cancel(true);
         }
 
-        public void UnPause()
-        {
+        public void UnPause() {
             Start();
         }
 
-        public void Cancel(bool save = false)
-        {
+        public void Cancel(bool save = false) {
             CloseStream();
 
-            if (!save)
-            {
-                if (File.Exists(tempPath))
-                {
+            if (!save) {
+                if (File.Exists(tempPath)) {
                     File.Delete(tempPath);
                 }
             }
 
             canceled = true;
 
-            if (_request != null)
-            {
+            if (_request != null) {
                 _request.Abort();
             }
 
             DisposeRequest();
         }
 
-        public void Finish()
-        {
-            if (_request != null && _request.isHttpError)
-            {
+        public void Finish() {
+            if (_request != null && _request.isHttpError) {
                 error = string.Format("Error downloading [{0}]: [{1}] [{2}]", url, _request.responseCode,
                     _request.error);
             }
 
-            if (_request != null && _request.isNetworkError)
-            {
+            if (_request != null && _request.isNetworkError) {
                 error = string.Format("Error downloading [{0}]: [{1}]", url, _request.error);
             }
 
-            CloseStream(); 
-            
-            DisposeRequest(); 
+            CloseStream();
+
+            DisposeRequest();
         }
 
-        public bool IsValid()
-        {
+        public bool IsValid() {
             var isOk = true;
-            if (File.Exists(tempPath))
-            {
-                using (var stream = File.OpenRead(tempPath))
-                {
-                    if (stream.Length != len)
-                    {
+            if (File.Exists(tempPath)) {
+                using (var stream = File.OpenRead(tempPath)) {
+                    if (stream.Length != len) {
                         error = string.Format("文件长度校验不通过，期望值:{0}，实际值:{1}", len, stream.Length);
                         isOk = false;
-                    }
-                    else
-                    {
-                        if (Assets.verifyBy == VerifyBy.CRC)
-                        {
+                    } else {
+                        if (Assets.verifyBy == VerifyBy.CRC) {
                             const StringComparison comparison = StringComparison.OrdinalIgnoreCase;
                             var crc = Utility.GetCRC32Hash(stream);
-                            if (!crc.Equals(hash, comparison))
-                            {
+                            if (!crc.Equals(hash, comparison)) {
                                 error = string.Format("文件hash校验不通过，期望值:{0}，实际值:{1}", hash, crc);
                                 isOk = false;
                             }
                         }
                     }
-                } 
-            } 
+                }
+            }
             return isOk;
         }
 
-        private void DisposeRequest()
-        {
+        private void DisposeRequest() {
             if (_request == null) return;
             _request.Dispose();
             _request = null;
         }
 
-        private void CloseStream()
-        {
+        private void CloseStream() {
             if (_stream == null) return;
             _stream.Flush();
             _stream.Close();
             _stream = null;
         }
 
-        public void Retry()
-        {
+        public void Retry() {
             Cancel();
             Start();
         }
 
-        public void Write(byte[] buffer, int index, int dataLength)
-        {
+        public void Write(byte[] buffer, int index, int dataLength) {
             _stream.Write(buffer, index, dataLength);
             position += dataLength;
         }
 
-        public void Copy()
-        {
-            if (File.Exists(tempPath))
-            { 
+        public void Copy() {
+            if (File.Exists(tempPath)) {
                 var dir = Path.GetDirectoryName(filename);
                 if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                     Directory.CreateDirectory(dir);
                 File.Copy(tempPath, filename, true);
                 PlayerPrefs.SetString(filename, hash);
             }
-            File.Delete(tempPath); 
+            File.Delete(tempPath);
         }
     }
 
-    public class DownloadHandler : DownloadHandlerScript
-    {
+    public class DownloadHandler : DownloadHandlerScript {
         private Download _download;
 
-        public DownloadHandler(Download download)
-        {
+        public DownloadHandler(Download download) {
             _download = download;
         }
 
-        protected override bool ReceiveData(byte[] buffer, int dataLength)
-        {
-            if (buffer == null || dataLength == 0)
-            {
+        protected override bool ReceiveData(byte[] buffer, int dataLength) {
+            if (buffer == null || dataLength == 0) {
                 return false;
             }
 
-            if (!_download.canceled)
-            {
+            if (!_download.canceled) {
                 _download.Write(buffer, 0, dataLength);
             }
 
             return true;
         }
 
-        protected override void CompleteContent()
-        {
+        protected override void CompleteContent() {
             _download.isFinished = true;
         }
     }

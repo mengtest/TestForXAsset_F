@@ -1,41 +1,31 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 
-namespace libx
-{
-    public class LevelScreen : MonoBehaviour
-    {
+namespace libx {
+    public class LevelScreen : MonoBehaviour {
         public Button buttonBack;
         public Button buttonPatch;
         public Slider progressBar;
         public Text progressText;
 
-        private void Start()
-        {
+        private void Start() {
             buttonBack.onClick.AddListener(Back);
-            if (Assets.currentVersions != null)
-            {
+            if (Assets.currentVersions != null) {
                 var patches = Assets.currentVersions.patches;
-                for (var i = 0; i < patches.Count; i++)
-                {
+                for (var i = 0; i < patches.Count; i++) {
                     var patch = patches[i];
                     var go = Instantiate(buttonPatch.gameObject, buttonPatch.transform.parent, false);
                     go.name = patch.name;
                     var text = go.GetComponentInChildren<Text>();
                     text.text = go.name;
-                    go.GetComponent<Button>().onClick.AddListener(delegate
-                    {
+                    go.GetComponent<Button>().onClick.AddListener(delegate {
                         Downloader handler;
-                        if (Assets.DownloadAll(new[] {patch.name}, out handler))
-                        {
+                        if (Assets.DownloadAll(new[] { patch.name }, out handler)) {
                             var totalSize = handler.size;
                             var tips = string.Format("总计需要下载 {0} 内容", Downloader.GetDisplaySize(totalSize));
-                            MessageBox.Show("更新提示", tips, download =>
-                            {
-                                if (download)
-                                {
-                                    handler.onUpdate += delegate(long progress, long size, float speed)
-                                    {
+                            MessageBox.Show("更新提示", tips, download => {
+                                if (download) {
+                                    handler.onUpdate += delegate (long progress, long size, float speed) {
                                         //刷新界面
                                         OnMessage(string.Format("下载中...{0}/{1}, 速度：{2}",
                                             Downloader.GetDisplaySize(progress),
@@ -43,50 +33,40 @@ namespace libx
                                             Downloader.GetDisplaySpeed(speed)));
                                         OnProgress(progress * 1f / size);
                                     };
-                                    handler.onFinished += delegate
-                                    {
+                                    handler.onFinished += delegate {
                                         OnMessage("下载完成");
                                         LoadScene(patch);
                                     };
                                     handler.Start();
-                                }
-                                else
-                                {
+                                } else {
                                     MessageBox.Show("提示", "下载失败：用户取消", isOk => { }, "确定", "退出");
                                 }
                             }, "下载");
-                        }
-                        else
-                        {
+                        } else {
                             LoadScene(patch);
                         }
                     });
-                } 
+                }
             }
-            buttonPatch.gameObject.SetActive(false); 
+            buttonPatch.gameObject.SetActive(false);
         }
 
-        private static void LoadScene(Patch patch)
-        {
-            if (string.IsNullOrEmpty(patch.name))
-            {
+        private static void LoadScene(Patch patch) {
+            if (string.IsNullOrEmpty(patch.name)) {
                 return;
             }
             Assets.LoadSceneAsync(R.GetScene(patch.name));
         }
 
-        private void OnProgress(float progress)
-        {
+        private void OnProgress(float progress) {
             progressBar.value = progress;
         }
 
-        private void OnMessage(string msg)
-        {
+        private void OnMessage(string msg) {
             progressText.text = msg;
         }
 
-        private void Back()
-        {
+        private void Back() {
             Assets.LoadSceneAsync(R.GetScene("Title"));
         }
     }

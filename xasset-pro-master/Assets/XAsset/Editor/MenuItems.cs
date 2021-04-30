@@ -32,19 +32,15 @@ using UnityEngine;
 using Debug = UnityEngine.Debug;
 using Object = UnityEngine.Object;
 
-namespace libx
-{
-    public static class MenuItems
-    {
+namespace libx {
+    public static class MenuItems {
         [MenuItem("XASSET/Copy Bundles")]
-        private static void CopyBundles()
-        {
+        private static void CopyBundles() {
             BuildScript.CopyAssets();
         }
 
         [MenuItem("XASSET/Build/Bundles")]
-        private static void BuildBundles()
-        {
+        private static void BuildBundles() {
             var watch = new Stopwatch();
             watch.Start();
             BuildScript.BuildRules();
@@ -54,8 +50,7 @@ namespace libx
         }
 
         [MenuItem("XASSET/Build/Player")]
-        private static void BuildPlayer()
-        {
+        private static void BuildPlayer() {
             var watch = new Stopwatch();
             watch.Start();
             BuildScript.BuildPlayer();
@@ -64,8 +59,7 @@ namespace libx
         }
 
         [MenuItem("XASSET/Build/Rules")]
-        private static void BuildRules()
-        {
+        private static void BuildRules() {
             var watch = new Stopwatch();
             watch.Start();
             BuildScript.BuildRules();
@@ -74,60 +68,51 @@ namespace libx
         }
 
         [MenuItem("XASSET/View/Versions")]
-        private static void ViewVersions()
-        {
+        private static void ViewVersions() {
             var path = EditorUtility.OpenFilePanel("OpenFile", Environment.CurrentDirectory, "");
             if (string.IsNullOrEmpty(path)) return;
             BuildScript.ViewVersions(path);
         }
 
         [MenuItem("XASSET/View/Bundles")]
-        private static void ViewBundles()
-        {
+        private static void ViewBundles() {
             EditorUtility.OpenWithDefaultApp(Assets.Bundles);
         }
 
         [MenuItem("XASSET/View/Download")]
-        private static void ViewDownload()
-        {
+        private static void ViewDownload() {
             EditorUtility.OpenWithDefaultApp(Application.persistentDataPath);
         }
 
         [MenuItem("XASSET/View/Temp")]
-        private static void ViewTemp()
-        {
+        private static void ViewTemp() {
             EditorUtility.OpenWithDefaultApp(Application.temporaryCachePath);
         }
 
         [MenuItem("XASSET/View/CRC")]
-        private static void GetCRC()
-        {
+        private static void GetCRC() {
             var path = EditorUtility.OpenFilePanel("OpenFile", Environment.CurrentDirectory, "");
             if (string.IsNullOrEmpty(path)) return;
 
-            using (var fs = File.OpenRead(path))
-            {
+            using (var fs = File.OpenRead(path)) {
                 var crc = Utility.GetCRC32Hash(fs);
                 Debug.Log(crc);
             }
         }
 
         [MenuItem("XASSET/View/MD5")]
-        private static void GetMD5()
-        {
+        private static void GetMD5() {
             var path = EditorUtility.OpenFilePanel("OpenFile", Environment.CurrentDirectory, "");
             if (string.IsNullOrEmpty(path)) return;
 
-            using (var fs = File.OpenRead(path))
-            {
+            using (var fs = File.OpenRead(path)) {
                 var crc = Utility.GetMD5Hash(fs);
                 Debug.Log(crc);
             }
         }
 
         [MenuItem("XASSET/Dump Assets")]
-        private static void DumpAssets()
-        {
+        private static void DumpAssets() {
             var path = EditorUtility.SaveFilePanel("DumpAssets", null, "dump", "txt");
             if (string.IsNullOrEmpty(path)) return;
             var s = Assets.DumpAssets();
@@ -136,8 +121,7 @@ namespace libx
         }
 
         [MenuItem("XASSET/Take Screenshot")]
-        private static void Screenshot()
-        {
+        private static void Screenshot() {
             var path = EditorUtility.SaveFilePanel("截屏", null, "screenshot_", "png");
             if (string.IsNullOrEmpty(path)) return;
 
@@ -145,8 +129,7 @@ namespace libx
         }
 
         [MenuItem("Assets/ToJson")]
-        private static void ToJson()
-        {
+        private static void ToJson() {
             var path = AssetDatabase.GetAssetPath(Selection.activeObject);
             var json = JsonUtility.ToJson(Selection.activeObject);
             File.WriteAllText(path.Replace(".asset", ".json"), json);
@@ -154,43 +137,36 @@ namespace libx
         }
 
         [MenuItem("Assets/Copy Path")]
-        private static void CopyPath()
-        {
+        private static void CopyPath() {
             var path = AssetDatabase.GetAssetPath(Selection.activeObject);
             EditorGUIUtility.systemCopyBuffer = path;
         }
 
         [MenuItem("Assets/GroupBy/None")]
-        private static void GroupByNone()
-        {
+        private static void GroupByNone() {
             GroupAssets(GroupBy.None);
         }
 
         [MenuItem("Assets/GroupBy/Filename")]
-        private static void GroupByFilename()
-        {
+        private static void GroupByFilename() {
             GroupAssets(GroupBy.Filename);
         }
 
         [MenuItem("Assets/GroupBy/Directory")]
-        private static void GroupByDirectory()
-        {
+        private static void GroupByDirectory() {
             GroupAssets(GroupBy.Directory);
         }
 
         [MenuItem("Assets/GroupBy/Explicit/shaders")]
-        private static void GroupByExplicitShaders()
-        {
+        private static void GroupByExplicitShaders() {
             GroupAssets(GroupBy.Explicit, "shaders");
         }
 
         [MenuItem("Assets/PatchBy/CurrentScene")]
-        private static void PatchAssets()
-        {
+        private static void PatchAssets() {
             var selection = Selection.GetFiltered<Object>(SelectionMode.DeepAssets);
             var rules = BuildScript.GetBuildRules();
-            foreach (var o in selection)
-            {
+            foreach (var o in selection) {
                 var path = AssetDatabase.GetAssetPath(o);
                 if (string.IsNullOrEmpty(path) || Directory.Exists(path)) continue;
                 rules.PatchAsset(path);
@@ -200,12 +176,10 @@ namespace libx
             AssetDatabase.SaveAssets();
         }
 
-        private static void GroupAssets(GroupBy nameBy, string bundle = null)
-        {
+        private static void GroupAssets(GroupBy nameBy, string bundle = null) {
             var selection = Selection.GetFiltered<Object>(SelectionMode.DeepAssets);
             var rules = BuildScript.GetBuildRules();
-            foreach (var o in selection)
-            {
+            foreach (var o in selection) {
                 var path = AssetDatabase.GetAssetPath(o);
                 if (string.IsNullOrEmpty(path) || Directory.Exists(path)) continue;
                 rules.GroupAsset(path, nameBy, bundle);

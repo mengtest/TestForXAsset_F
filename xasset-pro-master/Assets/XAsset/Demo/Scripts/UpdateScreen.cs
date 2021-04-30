@@ -29,10 +29,8 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace libx
-{
-    public class UpdateScreen : MonoBehaviour
-    {
+namespace libx {
+    public class UpdateScreen : MonoBehaviour {
         public Button buttonClear;
         public Button buttonAbout;
         public Button buttonStart;
@@ -40,54 +38,44 @@ namespace libx
         public Text progressText;
         public Text version;
 
-        private void Start()
-        {
-            NetworkMonitor.Instance.onReachabilityChanged += OnReachablityChanged; 
-            buttonStart.gameObject.SetActive(true); 
-            buttonStart.onClick.AddListener(StartUpdate); 
+        private void Start() {
+            NetworkMonitor.Instance.onReachabilityChanged += OnReachablityChanged;
+            buttonStart.gameObject.SetActive(true);
+            buttonStart.onClick.AddListener(StartUpdate);
             buttonAbout.onClick.AddListener(About);
             buttonClear.onClick.AddListener(Clear);
             version.text = Assets.currentVersions.ver;
-        } 
-
-        private void OnReachablityChanged(NetworkReachability reachability)
-        {
-            if (reachability == NetworkReachability.NotReachable)
-            { 
-                OnMessage("网络错误");
-            } 
         }
 
-        private void OnProgress(float progress)
-        {
+        private void OnReachablityChanged(NetworkReachability reachability) {
+            if (reachability == NetworkReachability.NotReachable) {
+                OnMessage("网络错误");
+            }
+        }
+
+        private void OnProgress(float progress) {
             progressBar.value = progress;
         }
 
-        private void OnMessage(string msg)
-        {
+        private void OnMessage(string msg) {
             progressText.text = msg;
         }
 
-        public void About()
-        {  
+        public void About() {
             var request = Assets.LoadAsset(R.GetPrefab("AboutScreen"), typeof(GameObject));
             var asset = request.asset;
             var go = Instantiate(asset) as GameObject;
             go.name = asset.name;
             request.Require(go);
             var button = go.GetComponentInChildren<Button>();
-            button.onClick.AddListener(delegate
-            {
+            button.onClick.AddListener(delegate {
                 DestroyImmediate(go);
             });
         }
 
-        public void Clear()
-        {
-            MessageBox.Show("提示", "清除数据后所有数据需要重新下载，请确认！,", cleanup =>
-            {
-                if (cleanup)
-                {
+        public void Clear() {
+            MessageBox.Show("提示", "清除数据后所有数据需要重新下载，请确认！,", cleanup => {
+                if (cleanup) {
                     File.Delete(Assets.updatePath + "/" + Assets.Versions);
                     PlayerPrefs.DeleteAll();
                     PlayerPrefs.Save();
@@ -98,62 +86,41 @@ namespace libx
             }, "清除");
         }
 
-        public void StartUpdate()
-        {
+        public void StartUpdate() {
 #if UNITY_EDITOR
-            if (Assets.development)
-            {
+            if (Assets.development) {
                 StartCoroutine(EnterLevel());
                 return;
             }
 #endif
             OnMessage("正在获取版本信息...");
-            if (Application.internetReachability == NetworkReachability.NotReachable)
-            {
-                MessageBox.Show("提示", "请检查网络连接状态", retry =>
-                {
-                    if (retry)
-                    {
+            if (Application.internetReachability == NetworkReachability.NotReachable) {
+                MessageBox.Show("提示", "请检查网络连接状态", retry => {
+                    if (retry) {
                         StartUpdate();
-                    }
-                    else
-                    {
+                    } else {
                         Quit();
                     }
                 }, "重试", "退出");
-            }
-            else
-            {
-                Assets.DownloadVersions(error =>
-                {
-                    if (!string.IsNullOrEmpty(error))
-                    {
-                        MessageBox.Show("提示", string.Format("获取服务器版本失败：{0}", error), retry =>
-                        {
-                            if (retry)
-                            {
+            } else {
+                Assets.DownloadVersions(error => {
+                    if (!string.IsNullOrEmpty(error)) {
+                        MessageBox.Show("提示", string.Format("获取服务器版本失败：{0}", error), retry => {
+                            if (retry) {
                                 StartUpdate();
-                            }
-                            else
-                            {
+                            } else {
                                 Quit();
                             }
                         });
-                    }
-                    else
-                    {
+                    } else {
                         Downloader handler;
                         // 按分包下载版本更新，返回true的时候表示需要下载，false的时候，表示不需要下载
-                        if (Assets.DownloadAll(Assets.patches4Init, out handler))
-                        {
+                        if (Assets.DownloadAll(Assets.patches4Init, out handler)) {
                             var totalSize = handler.size;
                             var tips = string.Format("发现内容更新，总计需要下载 {0} 内容", Downloader.GetDisplaySize(totalSize));
-                            MessageBox.Show("提示", tips, download =>
-                            {
-                                if (download)
-                                {
-                                    handler.onUpdate += delegate(long progress, long size, float speed)
-                                    {
+                            MessageBox.Show("提示", tips, download => {
+                                if (download) {
+                                    handler.onUpdate += delegate (long progress, long size, float speed) {
                                         //刷新界面
                                         OnMessage(string.Format("下载中...{0}/{1}, 速度：{2}",
                                             Downloader.GetDisplaySize(progress),
@@ -163,50 +130,41 @@ namespace libx
                                     };
                                     handler.onFinished += OnComplete;
                                     handler.Start();
-                                }
-                                else
-                                {
+                                } else {
                                     Quit();
                                 }
                             }, "下载", "退出");
-                        }
-                        else
-                        {
-                            OnComplete(); 
+                        } else {
+                            OnComplete();
                         }
                     }
                 });
             }
         }
 
-        private void OnComplete()
-        {
+        private void OnComplete() {
             OnProgress(1);
             version.text = Assets.currentVersions.ver;
             OnMessage("更新完成");
             StartCoroutine(EnterLevel());
         }
 
-        private IEnumerator EnterLevel()
-        {
+        private IEnumerator EnterLevel() {
             yield return null;
             OnProgress(0);
             OnMessage("加载游戏场景");
             var scene = Assets.LoadSceneAsync(R.GetScene("Level"));
-            while (!scene.isDone)
-            {
+            while (!scene.isDone) {
                 OnProgress(scene.progress);
                 yield return null;
             }
         }
 
-        private void OnDestroy()
-        {
+        private void OnDestroy() {
             MessageBox.Dispose();
         }
 
-        private void Quit()
-        {
+        private void Quit() {
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
 #else

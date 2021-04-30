@@ -27,15 +27,12 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace libx
-{
-    public class ScrollContent : MonoBehaviour
-    {
+namespace libx {
+    public class ScrollContent : MonoBehaviour {
         [SerializeField] private ScrollRect scroll;
         [SerializeField] private float speed;
 
-        private void LateUpdate()
-        {
+        private void LateUpdate() {
             var size = scroll.content.rect.size;
             var viewSize = scroll.viewport.rect.size;
             var len = size.y - viewSize.y;

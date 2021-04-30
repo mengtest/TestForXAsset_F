@@ -28,20 +28,16 @@ using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace libx
-{
+namespace libx {
     [ExecuteInEditMode]
-    public class BackgroundAdapter : MonoBehaviour
-    {
+    public class BackgroundAdapter : MonoBehaviour {
         private CanvasScaler _scaler;
 
-        public void OnStart()
-        {
+        public void OnStart() {
             UpdateScale();
         }
 
-        private void UpdateScale()
-        {
+        private void UpdateScale() {
             if (_scaler == null) _scaler = GetComponentInParent<CanvasScaler>();
 
             var resolution = _scaler.referenceResolution;
@@ -54,8 +50,7 @@ namespace libx
         }
 
         [Conditional("UNITY_EDITOR")]
-        private void Update()
-        {
+        private void Update() {
             UpdateScale();
         }
     }

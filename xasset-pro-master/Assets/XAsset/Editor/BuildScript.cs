@@ -31,17 +31,13 @@ using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
 
-namespace libx
-{
-    public class BuildScript : IPreprocessBuild
-    {
+namespace libx {
+    public class BuildScript : IPreprocessBuild {
         internal static readonly string outputPath = Assets.Bundles + "/" + GetPlatformName();
 
-        public static void ClearAssetBundles()
-        {
+        public static void ClearAssetBundles() {
             var names = AssetDatabase.GetAllAssetBundleNames();
-            for (var i = 0; i < names.Length; i++)
-            {
+            for (var i = 0; i < names.Length; i++) {
                 var text = names[i];
                 if (EditorUtility.DisplayCancelableProgressBar(
                         string.Format("Clear Bundles {0}/{1}", i, names.Length), text,
@@ -54,27 +50,22 @@ namespace libx
             EditorUtility.ClearProgressBar();
         }
 
-        internal static void BuildRules()
-        {
+        internal static void BuildRules() {
             var rules = GetBuildRules();
             rules.Build();
         }
 
-        internal static BuildRules GetBuildRules()
-        {
+        internal static BuildRules GetBuildRules() {
             return GetAsset<BuildRules>("Assets/Rules.asset");
         }
 
-        internal static string GetPlatformName()
-        {
+        internal static string GetPlatformName() {
             return GetPlatformForAssetBundles(EditorUserBuildSettings.activeBuildTarget);
         }
 
-        private static string GetPlatformForAssetBundles(BuildTarget target)
-        {
+        private static string GetPlatformForAssetBundles(BuildTarget target) {
             // ReSharper disable once SwitchStatementMissingSomeCases
-            switch (target)
-            {
+            switch (target) {
                 case BuildTarget.Android:
                     return "Android";
                 case BuildTarget.iOS:
@@ -98,14 +89,11 @@ namespace libx
             }
         }
 
-        private static string[] GetLevelsFromBuildSettings()
-        {
+        private static string[] GetLevelsFromBuildSettings() {
             List<string> scenes = new List<string>();
-            foreach (var item in GetBuildRules().scenesInBuild)
-            {
+            foreach (var item in GetBuildRules().scenesInBuild) {
                 var path = AssetDatabase.GetAssetPath(item);
-                if (!string.IsNullOrEmpty(path))
-                {
+                if (!string.IsNullOrEmpty(path)) {
                     scenes.Add(path);
                 }
             }
@@ -113,20 +101,17 @@ namespace libx
             return scenes.ToArray();
         }
 
-        private static string GetAssetBundleManifestFilePath()
-        {
+        private static string GetAssetBundleManifestFilePath() {
             return Path.Combine(outputPath, GetPlatformName()) + ".manifest";
         }
 
-        public static void BuildPlayer()
-        {
+        public static void BuildPlayer() {
             var path = Path.Combine(Environment.CurrentDirectory, "Build/" + GetPlatformName());
             if (path.Length == 0)
                 return;
 
             var levels = GetLevelsFromBuildSettings();
-            if (levels.Length == 0)
-            {
+            if (levels.Length == 0) {
                 Debug.Log("Nothing to build.");
                 return;
             }
@@ -135,8 +120,7 @@ namespace libx
             if (targetName == null)
                 return;
 
-            var buildPlayerOptions = new BuildPlayerOptions
-            {
+            var buildPlayerOptions = new BuildPlayerOptions {
                 scenes = levels,
                 locationPathName = path + targetName,
                 assetBundleManifestPath = GetAssetBundleManifestFilePath(),
@@ -146,8 +130,7 @@ namespace libx
             BuildPipeline.BuildPlayer(buildPlayerOptions);
         }
 
-        private static string CreateAssetBundleDirectory()
-        {
+        private static string CreateAssetBundleDirectory() {
             // Choose the output build according to the build target.
             if (!Directory.Exists(outputPath))
                 Directory.CreateDirectory(outputPath);
@@ -155,23 +138,20 @@ namespace libx
             return outputPath;
         }
 
-        public static void BuildAssetBundles()
-        {
+        public static void BuildAssetBundles() {
             // Choose the output build according to the build target.
             var dir = CreateAssetBundleDirectory();
             var platform = EditorUserBuildSettings.activeBuildTarget;
             var rules = GetBuildRules();
             var builds = rules.GetBuilds();
             var manifest = BuildPipeline.BuildAssetBundles(dir, builds, rules.options, platform);
-            if (manifest == null)
-            {
+            if (manifest == null) {
                 return;
             }
             BuildVersions(manifest, rules);
         }
 
-        private static void BuildVersions(AssetBundleManifest manifest, BuildRules rules)
-        {
+        private static void BuildVersions(AssetBundleManifest manifest, BuildRules rules) {
             var allBundles = manifest.GetAllAssetBundles();
             var bundle2Ids = GetBundle2Ids(allBundles);
             var bundles = GetBundles(manifest, allBundles, bundle2Ids);
@@ -181,76 +161,60 @@ namespace libx
             var assets = new List<AssetRef>();
             var patches = new List<Patch>();
             var asset2Bundles = new Dictionary<string, BundleRef>();
-            foreach (var item in rules.assets)
-            {
+            foreach (var item in rules.assets) {
                 var path = item.name;
                 var dir = Path.GetDirectoryName(path);
-                if (!string.IsNullOrEmpty(dir))
-                {
+                if (!string.IsNullOrEmpty(dir)) {
                     dir = dir.Replace("\\", "/");
                 }
                 var index = dirs.FindIndex(o => o.Equals(dir));
-                if (index == -1)
-                {
+                if (index == -1) {
                     index = dirs.Count;
                     dirs.Add(dir);
                 }
                 var asset = new AssetRef();
-                if (item.groupBy == GroupBy.None)
-                {
+                if (item.groupBy == GroupBy.None) {
                     var id = AddBundle(path, asset, ref bundles);
-                    asset.bundle = id; 
+                    asset.bundle = id;
+                } else {
+                    bundle2Ids.TryGetValue(item.bundle, out asset.bundle);
                 }
-                else
-                {
-                    bundle2Ids.TryGetValue(item.bundle, out asset.bundle); 
-                }
-                asset2Bundles[path] = bundles[asset.bundle]; 
+                asset2Bundles[path] = bundles[asset.bundle];
                 asset.dir = index;
                 asset.name = Path.GetFileName(path);
                 assets.Add(asset);
             }
 
-            Func<List<string>, List<int>> getFiles = delegate (List<string> list)
-            {
+            Func<List<string>, List<int>> getFiles = delegate (List<string> list) {
                 var ret = new List<int>();
-                foreach (var file in list)
-                {
+                foreach (var file in list) {
                     BundleRef bundle;
                     asset2Bundles.TryGetValue(file, out bundle);
-                    if (bundle != null)
-                    {
-                        if (!ret.Contains(bundle.id))
-                        {
+                    if (bundle != null) {
+                        if (!ret.Contains(bundle.id)) {
                             ret.Add(bundle.id);
                         }
-                        foreach (var child in bundle.children)
-                        {
-                            if (!ret.Contains(child))
-                            {
+                        foreach (var child in bundle.children) {
+                            if (!ret.Contains(child)) {
                                 ret.Add(child);
                             }
                         }
-                    }
-                    else
-                    {
+                    } else {
                         Debug.LogWarning("bundle == nil, file:" + file);
                     }
                 }
                 return ret;
             };
 
-            for (var i = 0; i < rules.patches.Count; i++)
-            {
+            for (var i = 0; i < rules.patches.Count; i++) {
                 var item = rules.patches[i];
-                patches.Add(new Patch
-                    {
-                        name = item.name,
-                        files = getFiles(item.assets),
-                    });
-            } 
+                patches.Add(new Patch {
+                    name = item.name,
+                    files = getFiles(item.assets),
+                });
+            }
 
-            var versions = new Versions(); 
+            var versions = new Versions();
             versions.activeVariants = manifest.GetAllAssetBundlesWithVariant();
             versions.dirs = dirs.ToArray();
             versions.assets = assets;
@@ -258,81 +222,63 @@ namespace libx
             versions.patches = patches;
             versions.ver = ver;
 
-            if (rules.allAssetsToBuild)
-            {
+            if (rules.allAssetsToBuild) {
                 bundles.ForEach(obj => obj.location = 1);
-            }
-            else
-            {
-                foreach (var patchName in rules.patchesInBuild)
-                {
+            } else {
+                foreach (var patchName in rules.patchesInBuild) {
                     var patch = versions.patches.Find((Patch item) => { return item.name.Equals(patchName); });
-                    if (patch != null)
-                    {
-                        foreach (var file in patch.files)
-                        {
-                            if (file >= 0 && file < bundles.Count)
-                            {
-                                bundles[file].location = 1; 
+                    if (patch != null) {
+                        foreach (var file in patch.files) {
+                            if (file >= 0 && file < bundles.Count) {
+                                bundles[file].location = 1;
                             }
-                        } 
-                    } 
-                } 
+                        }
+                    }
+                }
             }
 
             versions.Save(outputPath + "/" + Assets.Versions);
         }
 
-        private static int AddBundle(string path, AssetRef asset, ref List<BundleRef> bundles)
-        {
+        private static int AddBundle(string path, AssetRef asset, ref List<BundleRef> bundles) {
             var bundleName = path.Replace("Assets/", "");
             var destFile = Path.Combine(outputPath, bundleName);
             var destDir = Path.GetDirectoryName(destFile);
-            if (!Directory.Exists(destDir) && !string.IsNullOrEmpty(destDir))
-            {
+            if (!Directory.Exists(destDir) && !string.IsNullOrEmpty(destDir)) {
                 Directory.CreateDirectory(destDir);
             }
             File.Copy(path, destFile, true);
-            using (var stream = File.OpenRead(destFile))
-            {
-                var bundle = new BundleRef
-                {
+            using (var stream = File.OpenRead(destFile)) {
+                var bundle = new BundleRef {
                     name = bundleName,
                     id = bundles.Count,
                     len = stream.Length,
                     crc = Utility.GetCRC32Hash(stream),
                     hash = string.Empty
-                }; 
+                };
                 asset.bundle = bundles.Count;
-                bundles.Add(bundle);  
+                bundles.Add(bundle);
             }
             return asset.bundle;
         }
 
-        private static List<BundleRef> GetBundles(AssetBundleManifest manifest, IEnumerable<string> allBundles, IDictionary<string, int> bundle2Ids)
-        {
+        private static List<BundleRef> GetBundles(AssetBundleManifest manifest, IEnumerable<string> allBundles, IDictionary<string, int> bundle2Ids) {
             var bundles = new List<BundleRef>();
-            foreach (var bundle in allBundles)
-            {
+            foreach (var bundle in allBundles) {
                 var children = manifest.GetAllDependencies(bundle);
                 var path = string.Format("{0}/{1}", outputPath, bundle);
-                if (File.Exists(path))
-                {
-                    using (var stream = File.OpenRead(path))
-                    {
-                        bundles.Add(new BundleRef
-                            {
-                                id = bundle2Ids[bundle],
-                                name = bundle,
-                                children = Array.ConvertAll(children, input => bundle2Ids[input]),
-                                len = stream.Length,
-                                hash = manifest.GetAssetBundleHash(bundle).ToString(),
-                                crc = Utility.GetCRC32Hash(stream)
-                            });
+                if (File.Exists(path)) {
+                    using (var stream = File.OpenRead(path)) {
+                        bundles.Add(new BundleRef {
+                            id = bundle2Ids[bundle],
+                            name = bundle,
+                            children = Array.ConvertAll(children, input => bundle2Ids[input]),
+                            len = stream.Length,
+                            hash = manifest.GetAssetBundleHash(bundle).ToString(),
+                            crc = Utility.GetCRC32Hash(stream)
+                        });
                     }
-                }
-                else
-                {
+                } else {
                     Debug.LogError(path + " file not exist.");
                 }
             }
@@ -340,23 +286,19 @@ namespace libx
             return bundles;
         }
 
-        private static Dictionary<string, int> GetBundle2Ids(string[] bundles)
-        {
+        private static Dictionary<string, int> GetBundle2Ids(string[] bundles) {
             var bundle2Ids = new Dictionary<string, int>();
-            for (var index = 0; index < bundles.Length; index++)
-            {
+            for (var index = 0; index < bundles.Length; index++) {
                 var bundle = bundles[index];
                 bundle2Ids[bundle] = index;
             }
             return bundle2Ids;
         }
 
-        private static string GetBuildTargetName(BuildTarget target)
-        {
+        private static string GetBuildTargetName(BuildTarget target) {
             var time = DateTime.Now.ToString("yyyyMMdd-HHmmss");
             var name = PlayerSettings.productName + "-v" + PlayerSettings.bundleVersion + ".";
-            switch (target)
-            {
+            switch (target) {
                 case BuildTarget.Android:
                     return string.Format("/{0}{1}-{2}.apk", name, GetBuildRules().GetVersion(), time);
 
@@ -379,18 +321,16 @@ namespace libx
                 case BuildTarget.WebGL:
                 case BuildTarget.iOS:
                     return "";
-            // Add more build targets for your own.
+                // Add more build targets for your own.
                 default:
                     Debug.Log("Target not implemented.");
                     return null;
             }
         }
 
-        public static T GetAsset<T>(string path) where T : ScriptableObject
-        {
+        public static T GetAsset<T>(string path) where T : ScriptableObject {
             var asset = AssetDatabase.LoadAssetAtPath<T>(path);
-            if (asset == null)
-            {
+            if (asset == null) {
                 asset = ScriptableObject.CreateInstance<T>();
                 AssetDatabase.CreateAsset(asset, path);
                 AssetDatabase.SaveAssets();
@@ -399,57 +339,47 @@ namespace libx
             return asset;
         }
 
-        public int callbackOrder
-        {
+        public int callbackOrder {
             get { return 0; }
         }
 
-        public void OnPreprocessBuild(BuildTarget target, string path)
-        {
+        public void OnPreprocessBuild(BuildTarget target, string path) {
             SetupScenesInBuild();
             CopyAssets();
         }
 
-        private static void SetupScenesInBuild()
-        {
+        private static void SetupScenesInBuild() {
             var levels = GetLevelsFromBuildSettings();
             var scenes = new EditorBuildSettingsScene[levels.Length];
-            for (var index = 0; index < levels.Length; index++)
-            {
+            for (var index = 0; index < levels.Length; index++) {
                 var asset = levels[index];
                 scenes[index] = new EditorBuildSettingsScene(asset, true);
             }
             EditorBuildSettings.scenes = scenes;
         }
 
-        public static void CopyAssets()
-        {
+        public static void CopyAssets() {
             var dir = Application.streamingAssetsPath + "/" + Assets.Bundles;
-            if (Directory.Exists(dir))
-            {
+            if (Directory.Exists(dir)) {
                 Directory.Delete(dir, true);
             }
             Directory.CreateDirectory(dir);
             var sourceDir = outputPath;
-            var versions = Assets.LoadVersions(Path.Combine(sourceDir, Assets.Versions)); 
-            foreach (var file in versions.bundles)
-            {
-                if (file.location == 1)
-                {
+            var versions = Assets.LoadVersions(Path.Combine(sourceDir, Assets.Versions));
+            foreach (var file in versions.bundles) {
+                if (file.location == 1) {
                     var destFile = Path.Combine(dir, file.name);
                     var destDir = Path.GetDirectoryName(destFile);
-                    if (!Directory.Exists(destDir) && !string.IsNullOrEmpty(destDir))
-                    {
+                    if (!Directory.Exists(destDir) && !string.IsNullOrEmpty(destDir)) {
                         Directory.CreateDirectory(destDir);
                     }
                     File.Copy(Path.Combine(sourceDir, file.name), destFile);
-                } 
+                }
             }
-            File.Copy(Path.Combine(sourceDir, Assets.Versions), Path.Combine(dir, Assets.Versions)); 
+            File.Copy(Path.Combine(sourceDir, Assets.Versions), Path.Combine(dir, Assets.Versions));
         }
 
-        public static void ViewVersions(string path)
-        {
+        public static void ViewVersions(string path) {
             var versions = Assets.LoadVersions(path);
             var txt = "versions.txt";
             File.WriteAllText(txt, versions.ToString());

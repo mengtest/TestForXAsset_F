@@ -32,10 +32,8 @@ using UnityEngine.Assertions;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
-namespace libx
-{
-    public class MessageBox : IEnumerator
-    {
+namespace libx {
+    public class MessageBox : IEnumerator {
         private static readonly List<MessageBox> _showed = new List<MessageBox>();
         private static readonly List<MessageBox> _hidden = new List<MessageBox>();
         private Text _content;
@@ -45,8 +43,7 @@ namespace libx
         private Text _title;
         private bool _visible = true;
 
-        private MessageBox(string title, string content, Action<bool> completed, string ok, string no)
-        {
+        private MessageBox(string title, string content, Action<bool> completed, string ok, string no) {
             var request = Assets.LoadAsset(R.GetPrefab("MessageBox"), typeof(GameObject));
             gameObject = Object.Instantiate(request.asset) as GameObject;
             Assert.IsNotNull(gameObject, "gameObject != null");
@@ -74,8 +71,7 @@ namespace libx
 
         public Action<bool> completed { get; set; }
 
-        public static void Dispose()
-        {
+        public static void Dispose() {
             foreach (var item in _hidden) item.Destroy();
 
             _hidden.Clear();
@@ -85,10 +81,8 @@ namespace libx
             _showed.Clear();
         }
 
-        public static void CloseAll()
-        {
-            for (var index = 0; index < _showed.Count; index++)
-            {
+        public static void CloseAll() {
+            for (var index = 0; index < _showed.Count; index++) {
                 var messageBox = _showed[index];
                 messageBox.Hide();
                 _hidden.Add(messageBox);
@@ -98,10 +92,8 @@ namespace libx
         }
 
         public static MessageBox Show(string title, string content, Action<bool> completed, string ok = "确定",
-            string no = "取消")
-        {
-            if (_hidden.Count > 0)
-            {
+            string no = "取消") {
+            if (_hidden.Count > 0) {
                 var mb = _hidden[0];
                 mb.completed = completed;
                 mb.Init(title, content, ok, no);
@@ -113,8 +105,7 @@ namespace libx
             return new MessageBox(title, content, completed, ok, no);
         }
 
-        private void Destroy()
-        {
+        private void Destroy() {
             _title = null;
             _textOk = null;
             _textNo = null;
@@ -123,8 +114,7 @@ namespace libx
             gameObject = null;
         }
 
-        private void Init(string title, string content, string ok, string no)
-        {
+        private void Init(string title, string content, string ok, string no) {
             _title.text = title;
             _content.text = content;
             _textOk.text = ok;
@@ -133,56 +123,47 @@ namespace libx
             _visible = true;
         }
 
-        private T GetComponent<T>(string path) where T : Component
-        {
+        private T GetComponent<T>(string path) where T : Component {
             var trans = gameObject.transform.Find(path);
             return trans.GetComponent<T>();
         }
 
-        private void OnClickNo()
-        {
+        private void OnClickNo() {
             HandleEvent(false);
         }
 
-        private void OnClickOk()
-        {
+        private void OnClickOk() {
             HandleEvent(true);
         }
 
-        private void HandleEvent(bool isOk)
-        {
+        private void HandleEvent(bool isOk) {
             Close();
             if (completed == null) return;
             completed(isOk);
             completed = null;
         }
 
-        public void Close()
-        {
+        public void Close() {
             Hide();
             _hidden.Add(this);
             _showed.Remove(this);
         }
 
-        private void Hide()
-        {
+        private void Hide() {
             gameObject.SetActive(false);
             _visible = false;
         }
 
         #region IEnumerator implementation
 
-        public bool MoveNext()
-        {
+        public bool MoveNext() {
             return _visible;
         }
 
-        public void Reset()
-        {
+        public void Reset() {
         }
 
-        public object Current
-        {
+        public object Current {
             get { return null; }
         }
 

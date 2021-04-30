@@ -30,10 +30,8 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 
-namespace libx
-{
-    public enum GroupBy
-    {
+namespace libx {
+    public enum GroupBy {
         None,
         Explicit,
         Filename,
@@ -41,8 +39,7 @@ namespace libx
     }
 
     [Serializable]
-    public class AssetBuild
-    {
+    public class AssetBuild {
         public string name;
         public string group;
         public string bundle = string.Empty;
@@ -51,29 +48,24 @@ namespace libx
     }
 
     [Serializable]
-    public class PatchBuild
-    {
+    public class PatchBuild {
         public string name;
         public List<string> assets = new List<string>();
     }
 
     [Serializable]
-    public class BundleBuild
-    {
+    public class BundleBuild {
         public string assetBundleName;
         public List<string> assetNames = new List<string>();
-        public AssetBundleBuild ToBuild()
-        {
-            return new AssetBundleBuild()
-            {
+        public AssetBundleBuild ToBuild() {
+            return new AssetBundleBuild() {
                 assetBundleName = assetBundleName,
                 assetNames = assetNames.ToArray(),
             };
         }
     }
 
-    public class BuildRules : ScriptableObject
-    {
+    public class BuildRules : ScriptableObject {
         private readonly List<string> _duplicated = new List<string>();
         private readonly Dictionary<string, HashSet<string>> _tracker = new Dictionary<string, HashSet<string>>();
         private readonly Dictionary<string, string> _asset2Bundles = new Dictionary<string, string>();
@@ -113,37 +105,25 @@ namespace libx
 
         public string currentScene;
 
-        public void BeginSample()
-        {
+        public void BeginSample() {
         }
 
-        public void EndSample()
-        {
+        public void EndSample() {
 
         }
 
 
-        public void OnLoadAsset(string assetPath)
-        {
-            if (autoRecord && Assets.development)
-            {
+        public void OnLoadAsset(string assetPath) {
+            if (autoRecord && Assets.development) {
                 GroupAsset(assetPath, GetGroup(assetPath));
-            }
-            else
-            {
-                if (validateAssetPath)
-                {
-                    if (assetPath.Contains("Assets"))
-                    {
-                        if (File.Exists(assetPath))
-                        {
-                            if (!assets.Exists(asset => asset.name.Equals(assetPath)))
-                            {
+            } else {
+                if (validateAssetPath) {
+                    if (assetPath.Contains("Assets")) {
+                        if (File.Exists(assetPath)) {
+                            if (!assets.Exists(asset => asset.name.Equals(assetPath))) {
                                 EditorUtility.DisplayDialog("文件大消息不匹配", assetPath, "确定");
                             }
-                        }
-                        else
-                        {
+                        } else {
                             EditorUtility.DisplayDialog("资源不存在", assetPath, "确定");
                         }
                     }
@@ -151,16 +131,12 @@ namespace libx
             }
         }
 
-        private GroupBy GetGroup(string assetPath)
-        {
+        private GroupBy GetGroup(string assetPath) {
             var groupBy = GroupBy.Filename;
             var dir = Path.GetDirectoryName(assetPath).Replace("\\", "/");
-            if (autoGroupByDirectories.Length > 0)
-            {
-                foreach (var groupWithDir in autoGroupByDirectories)
-                {
-                    if (groupWithDir.Contains(dir))
-                    {
+            if (autoGroupByDirectories.Length > 0) {
+                foreach (var groupWithDir in autoGroupByDirectories) {
+                    if (groupWithDir.Contains(dir)) {
                         groupBy = GroupBy.Directory;
                         break;
                     }
@@ -170,70 +146,57 @@ namespace libx
             return groupBy;
         }
 
-        public void OnUnloadAsset(string assetPath)
-        {
+        public void OnUnloadAsset(string assetPath) {
         }
 
         #region API
 
-        public AssetBuild GroupAsset(string path, GroupBy groupBy = GroupBy.Filename, string group = null)
-        {
+        public AssetBuild GroupAsset(string path, GroupBy groupBy = GroupBy.Filename, string group = null) {
             var value = assets.Find(assetBuild => assetBuild.name.Equals(path));
-            if (value == null)
-            {
+            if (value == null) {
                 value = new AssetBuild();
                 value.name = path;
                 assets.Add(value);
             }
-            if (groupBy == GroupBy.Explicit)
-            {
+            if (groupBy == GroupBy.Explicit) {
                 value.group = group;
             }
-            if (IsScene(path))
-            {
+            if (IsScene(path)) {
                 currentScene = Path.GetFileNameWithoutExtension(path);
             }
             value.groupBy = groupBy;
-            if (autoRecord && Assets.development)
-            {
+            if (autoRecord && Assets.development) {
                 PatchAsset(path);
             }
             return value;
         }
 
-        public void PatchAsset(string path)
-        {
+        public void PatchAsset(string path) {
             var patchName = currentScene;
             var value = patches.Find(patch => patch.name.Equals(patchName));
-            if (value == null)
-            {
+            if (value == null) {
                 value = new PatchBuild();
                 value.name = patchName;
                 patches.Add(value);
             }
-            if (File.Exists(path))
-            {
-                if (!value.assets.Contains(path))
-                {
+            if (File.Exists(path)) {
+                if (!value.assets.Contains(path)) {
                     value.assets.Add(path);
                 }
             }
         }
 
-        public string AddVersion()
-        {
+        public string AddVersion() {
             build = build + 1;
             return GetVersion();
         }
 
-        public string GetVersion()
-        {
+        public string GetVersion() {
             var ver = new Version(major, minor, build);
             return ver.ToString();
         }
 
-        public void Build()
-        {
+        public void Build() {
             Clear();
             CollectAssets();
             AnalysisAssets();
@@ -241,8 +204,7 @@ namespace libx
             Save();
         }
 
-        public AssetBundleBuild[] GetBuilds()
-        {
+        public AssetBundleBuild[] GetBuilds() {
             return bundles.ConvertAll(delegate (BundleBuild input) { return input.ToBuild(); }).ToArray();
         }
 
@@ -250,117 +212,94 @@ namespace libx
 
         #region Private
 
-        private string GetGroupName(AssetBuild assetBuild)
-        {
+        private string GetGroupName(AssetBuild assetBuild) {
             return GetGroupName(assetBuild.groupBy, assetBuild.name, assetBuild.group);
         }
 
-        internal bool ValidateAsset(string asset)
-        {
+        internal bool ValidateAsset(string asset) {
             if (!asset.StartsWith("Assets/")) return false;
 
             var ext = Path.GetExtension(asset).ToLower();
             return ext != ".dll" && ext != ".cs" && ext != ".meta" && ext != ".js" && ext != ".boo";
         }
 
-        private bool IsScene(string asset)
-        {
+        private bool IsScene(string asset) {
             return asset.EndsWith(".unity");
         }
 
-        private string GetGroupName(GroupBy groupBy, string asset, string group = null, bool isChildren = false, bool isShared = false)
-        {
-            if (asset.EndsWith(".shader"))
-            {
+        private string GetGroupName(GroupBy groupBy, string asset, string group = null, bool isChildren = false, bool isShared = false) {
+            if (asset.EndsWith(".shader")) {
                 group = "shaders";
                 groupBy = GroupBy.Explicit;
                 isChildren = false;
-            }
-
-            else if (IsScene(asset))
-            {
+            } else if (IsScene(asset)) {
                 groupBy = GroupBy.Filename;
             }
 
-            switch (groupBy)
-            {
+            switch (groupBy) {
                 case GroupBy.Explicit:
                     break;
-                case GroupBy.Filename:
-                    {
+                case GroupBy.Filename: {
                         var assetName = Path.GetFileNameWithoutExtension(asset);
-                        var directoryName = Path.GetDirectoryName(asset).Replace("\\", "/").Replace("/", "_"); 
+                        var directoryName = Path.GetDirectoryName(asset).Replace("\\", "/").Replace("/", "_");
                         group = directoryName + "_" + assetName;
                     }
                     break;
-                case GroupBy.Directory:
-                    {
-                        var directoryName = Path.GetDirectoryName(asset).Replace("\\", "/").Replace("/", "_"); 
+                case GroupBy.Directory: {
+                        var directoryName = Path.GetDirectoryName(asset).Replace("\\", "/").Replace("/", "_");
                         group = directoryName;
                         break;
                     }
             }
-            
-            if (isChildren)
-            {
+
+            if (isChildren) {
                 return "children_" + group;
             }
 
-            if (isShared)
-            {
+            if (isShared) {
                 group = "shared_" + group;
             }
             return (nameByHash ? Utility.GetMD5Hash(group) : group.TrimEnd('_').ToLower()) + extension;
         }
 
-        private void Track(string asset, string bundle)
-        {
+        private void Track(string asset, string bundle) {
             HashSet<string> hashSet;
-            if (!_tracker.TryGetValue(asset, out hashSet))
-            {
+            if (!_tracker.TryGetValue(asset, out hashSet)) {
                 hashSet = new HashSet<string>();
                 _tracker.Add(asset, hashSet);
             }
             hashSet.Add(bundle);
             string bundleName;
             _asset2Bundles.TryGetValue(asset, out bundleName);
-            if (string.IsNullOrEmpty(bundleName))
-            {
+            if (string.IsNullOrEmpty(bundleName)) {
                 _unexplicits[asset] = GetGroupName(GroupBy.Explicit, asset, bundle, true);
-                if (hashSet.Count > 1)
-                {
+                if (hashSet.Count > 1) {
                     _duplicated.Add(asset);
                 }
             }
         }
 
-        private void BundleAsset(string assetName, string assetBundleName)
-        {
-            if (IsScene(assetName))
-            {
+        private void BundleAsset(string assetName, string assetBundleName) {
+            if (IsScene(assetName)) {
                 assetBundleName = GetGroupName(GroupAsset(assetName));
             }
 
             _asset2Bundles[assetName] = assetBundleName;
         }
 
-        private void Clear()
-        {
+        private void Clear() {
             _unexplicits.Clear();
             _tracker.Clear();
             _duplicated.Clear();
             _asset2Bundles.Clear();
         }
 
-        private Dictionary<string, List<string>> GetBundles()
-        {
+        private Dictionary<string, List<string>> GetBundles() {
             var dictionary = new Dictionary<string, List<string>>();
-            foreach (var item in _asset2Bundles)
-            {
+            foreach (var item in _asset2Bundles) {
                 var bundle = item.Value;
                 List<string> list;
-                if (!dictionary.TryGetValue(bundle, out list))
-                {
+                if (!dictionary.TryGetValue(bundle, out list)) {
                     list = new List<string>();
                     dictionary[bundle] = list;
                 }
@@ -369,27 +308,21 @@ namespace libx
             return dictionary;
         }
 
-        private void Save()
-        {
+        private void Save() {
             bundles.Clear();
             var map = GetBundles();
-            foreach (var item in map)
-            {
-                var bundle = new BundleBuild()
-                {
+            foreach (var item in map) {
+                var bundle = new BundleBuild() {
                     assetBundleName = item.Key,
                     assetNames = item.Value,
                 };
                 bundles.Add(bundle);
             }
 
-            foreach (var patch in patches)
-            {
-                for (var i = 0; i < patch.assets.Count; ++i)
-                {
+            foreach (var patch in patches) {
+                for (var i = 0; i < patch.assets.Count; ++i) {
                     var asset = patch.assets[i];
-                    if (!File.Exists(asset))
-                    {
+                    if (!File.Exists(asset)) {
                         patch.assets.RemoveAt(i);
                         --i;
                     }
@@ -400,18 +333,14 @@ namespace libx
             AssetDatabase.SaveAssets();
         }
 
-        private void OptimizeAssets()
-        {
-            foreach (var item in _unexplicits)
-            {
-                if (_tracker[item.Key].Count < 2)
-                {
+        private void OptimizeAssets() {
+            foreach (var item in _unexplicits) {
+                if (_tracker[item.Key].Count < 2) {
                     _asset2Bundles[item.Key] = item.Value;
                 }
             }
 
-            for (int i = 0, max = _duplicated.Count; i < max; i++)
-            {
+            for (int i = 0, max = _duplicated.Count; i < max; i++) {
                 var item = _duplicated[i];
                 if (EditorUtility.DisplayCancelableProgressBar(string.Format("优化冗余{0}/{1}", i, max), item,
                     i / (float)max)) break;
@@ -419,12 +348,10 @@ namespace libx
             }
         }
 
-        private void AnalysisAssets()
-        {
+        private void AnalysisAssets() {
             var getBundles = GetBundles();
             var i = 0;
-            foreach (var item in getBundles)
-            {
+            foreach (var item in getBundles) {
                 var bundle = item.Key;
                 var tips = string.Format("分析依赖{0}/{1}", i, getBundles.Count);
                 if (EditorUtility.DisplayCancelableProgressBar(tips, bundle, i / (float)getBundles.Count))
@@ -432,14 +359,11 @@ namespace libx
                 var assetPaths = item.Value.ToArray();
                 var dependencies = AssetDatabase.GetDependencies(assetPaths, true);
                 if (dependencies.Length > 0)
-                    foreach (var asset in dependencies)
-                    {
-                        if (Directory.Exists(asset) || asset.EndsWith(".spriteatlas") || asset.EndsWith(".giparams") || asset.EndsWith("LightingData.asset"))
-                        {
+                    foreach (var asset in dependencies) {
+                        if (Directory.Exists(asset) || asset.EndsWith(".spriteatlas") || asset.EndsWith(".giparams") || asset.EndsWith("LightingData.asset")) {
                             continue;
                         }
-                        if (ValidateAsset(asset))
-                        {
+                        if (ValidateAsset(asset)) {
                             Track(asset, bundle);
                         }
                     }
@@ -447,19 +371,15 @@ namespace libx
             }
         }
 
-        private void CollectAssets()
-        {
+        private void CollectAssets() {
             var list = new List<AssetBuild>();
             var len = Environment.CurrentDirectory.Length + 1;
-            for (var index = 0; index < assets.Count; index++)
-            {
+            for (var index = 0; index < assets.Count; index++) {
                 var asset = assets[index];
                 var path = new FileInfo(asset.name);
-                if (path.Exists && ValidateAsset(asset.name))
-                {
+                if (path.Exists && ValidateAsset(asset.name)) {
                     var relativePath = path.FullName.Substring(len).Replace("\\", "/");
-                    if (!relativePath.Equals(asset.name))
-                    {
+                    if (!relativePath.Equals(asset.name)) {
                         Debug.LogWarningFormat("检查到路径大小写不匹配！输入：{0}实际：{1}，已经自动修复。", asset.name, relativePath);
                         asset.name = relativePath;
                     }
@@ -467,11 +387,9 @@ namespace libx
                 }
             }
 
-            for (var i = 0; i < list.Count; i++)
-            {
+            for (var i = 0; i < list.Count; i++) {
                 var asset = list[i];
-                if (asset.groupBy == GroupBy.None)
-                {
+                if (asset.groupBy == GroupBy.None) {
                     continue;
                 }
 
@@ -482,8 +400,7 @@ namespace libx
             assets = list;
         }
 
-        private void OptimizeAsset(string asset)
-        {
+        private void OptimizeAsset(string asset) {
             _asset2Bundles[asset] = GetGroupName(GroupBy.Directory, asset, null, false, true);
         }
 
