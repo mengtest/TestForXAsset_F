@@ -37,10 +37,29 @@ MonoBehaviour:
     bundleName: assets_xasset_extend_testimage
     id: 0
     groupBy: 3
+  - assetName: Assets/XAsset/Extend/TestPrefab/Image.prefab
+    groupName: 
+    bundleName: assets_xasset_extend_testprefab
+    id: 0
+    groupBy: 3
+  - assetName: Assets/XAsset/Extend/TestPrefab2/Image2.prefab
+    groupName: 
+    bundleName: assets_xasset_extend_testprefab2
+    id: 0
+    groupBy: 3
   patches: []
   bundles:
   - assetBundleName: assets_xasset_extend_testimage
     assetNames:
     - Assets/XAsset/Extend/TestImage/Btn_Tab1_n 1.png
     - Assets/XAsset/Extend/TestImage/bg_ItemIntrudction 1.png
+  - assetBundleName: assets_xasset_extend_testprefab
+    assetNames:
+    - Assets/XAsset/Extend/TestPrefab/Image.prefab
+  - assetBundleName: assets_xasset_extend_testprefab2
+    assetNames:
+    - Assets/XAsset/Extend/TestPrefab2/Image2.prefab
+  - assetBundleName: shared_assets_xasset_extend_testcommon
+    assetNames:
+    - Assets/XAsset/Extend/TestCommon/Btn_User_h 1.png
   currentScene: 
