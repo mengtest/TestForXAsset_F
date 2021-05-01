@@ -33,6 +33,7 @@ using UnityEngine;
 
 namespace libx {
     public class BuildScript : IPreprocessBuild {
+        // 获取 bundle 输出目录 e.g. Bundles/Android
         internal static readonly string outputPath = Assets.Bundles + "/" + GetPlatformName();
 
         public static void ClearAssetBundles() {
@@ -65,7 +66,8 @@ namespace libx {
         internal static string GetPlatformName() {
             return GetPlatformForAssetBundles(EditorUserBuildSettings.activeBuildTarget);
         }
-
+        
+        // 获取平台名
         private static string GetPlatformForAssetBundles(BuildTarget target) {
             // ReSharper disable once SwitchStatementMissingSomeCases
             switch (target) {
@@ -133,6 +135,7 @@ namespace libx {
             BuildPipeline.BuildPlayer(buildPlayerOptions);
         }
 
+        // 创建 bundle 所在目录 e.g. Bundles/Android
         private static string CreateAssetBundleDirectory() {
             // Choose the output build according to the build target.
             if (!Directory.Exists(outputPath))
@@ -141,23 +144,33 @@ namespace libx {
             return outputPath;
         }
 
+        // 生成 AssetBundle
         public static void BuildAssetBundles() {
-            // Choose the output build according to the build target.
-            var dir = CreateAssetBundleDirectory();
-            var platform = EditorUserBuildSettings.activeBuildTarget;
-            var rules = GetBuildRules();
-            var builds = rules.GetBuilds();
-            var manifest = BuildPipeline.BuildAssetBundles(dir, builds, rules.options, platform);
-            if (manifest == null) {
+            // 创建目录 e.g. Bundles/Windows
+            string dir = CreateAssetBundleDirectory();
+            // 获取 BuildTarget
+            BuildTarget platform = EditorUserBuildSettings.activeBuildTarget;
+            // 获取 buildRules
+            BuildRules buildRules = GetBuildRules();
+
+            // 获取 AssetBundleBuild[]
+            AssetBundleBuild[] assetBundleBuildArray = buildRules.GetAssetBundleBuildArray();
+
+            // 生成 bundle 官方API
+            AssetBundleManifest assetBundleManifest = BuildPipeline.BuildAssetBundles(dir, assetBundleBuildArray, buildRules.options, platform);
+            if (assetBundleManifest == null) {
                 return;
             }
-            BuildVersions(manifest, rules);
+
+            BuildVersions(assetBundleManifest, buildRules);
         }
 
-        private static void BuildVersions(AssetBundleManifest manifest, BuildRules rules) {
-            var allBundles = manifest.GetAllAssetBundles();
-            var bundle2Ids = GetBundle2Ids(allBundles);
-            var bundles = GetBundles(manifest, allBundles, bundle2Ids);
+        private static void BuildVersions(AssetBundleManifest assetBundleManifest, BuildRules rules) {
+            // 获取所有的 bundle(官方API)
+            string[] allBundleArray = assetBundleManifest.GetAllAssetBundles();
+
+            var bundle2Ids = GetBundle2Ids(allBundleArray);
+            var bundles = GetBundles(assetBundleManifest, allBundleArray, bundle2Ids);
             var ver = rules.AddVersion();
 
             var dirs = new List<string>();
@@ -209,8 +222,8 @@ namespace libx {
                 return ret;
             };
 
-            for (var i = 0; i < rules.patches.Count; i++) {
-                var item = rules.patches[i];
+            for (var i = 0; i < rules.patchBuildList.Count; i++) {
+                var item = rules.patchBuildList[i];
                 patches.Add(new Patch {
                     name = item.name,
                     files = getFiles(item.assets),
@@ -218,7 +231,7 @@ namespace libx {
             }
 
             var versions = new Versions();
-            versions.activeVariants = manifest.GetAllAssetBundlesWithVariant();
+            versions.activeVariants = assetBundleManifest.GetAllAssetBundlesWithVariant();
             versions.dirs = dirs.ToArray();
             versions.assets = assets;
             versions.bundles = bundles;

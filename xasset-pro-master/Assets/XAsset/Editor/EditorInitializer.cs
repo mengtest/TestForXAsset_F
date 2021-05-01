@@ -72,8 +72,8 @@ namespace libx {
                 }
             }
 
-            for (var i = 0; i < rules.patches.Count; i++) {
-                var item = rules.patches[i];
+            for (var i = 0; i < rules.patchBuildList.Count; i++) {
+                var item = rules.patchBuildList[i];
                 var patch = new Patch();
                 patch.name = item.name;
                 patches.Add(patch);

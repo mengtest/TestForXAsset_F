@@ -35,6 +35,7 @@ using Object = UnityEngine.Object;
 
 namespace libx {
     public sealed class Assets : MonoBehaviour {
+        // Bundle 所在的文件夹名
         public const string Bundles = "Bundles";
         public const string Versions = "versions.bundle";
         private const string KVersions = "version";
