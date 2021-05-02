@@ -34,7 +34,7 @@ using UnityEngine;
 namespace libx {
     public class BuildScript : IPreprocessBuild {
         // 获取 bundle 输出目录 e.g. Bundles/Android
-        internal static readonly string outputPath = Assets.Bundles + "/" + GetPlatformName();
+        internal static readonly string outputPath = Assets.BundlesDirName + "/" + GetPlatformName();
 
         public static void ClearAssetBundles() {
             var names = AssetDatabase.GetAllAssetBundleNames();
@@ -283,7 +283,7 @@ namespace libx {
             }
 
             //  e.g. Bundles/Windows/versions.bundle
-            versions.Save(outputPath + "/" + Assets.Versions);
+            versions.Save(outputPath + "/" + Assets.VersionsFileName);
         }
 
         private static int AddBundle(string path, AssetRef asset, ref List<BundleRef> bundles) {
@@ -412,13 +412,13 @@ namespace libx {
         }
 
         public static void CopyAssets() {
-            var dir = Application.streamingAssetsPath + "/" + Assets.Bundles;
+            var dir = Application.streamingAssetsPath + "/" + Assets.BundlesDirName;
             if (Directory.Exists(dir)) {
                 Directory.Delete(dir, true);
             }
             Directory.CreateDirectory(dir);
             var sourceDir = outputPath;
-            var versions = Assets.LoadVersions(Path.Combine(sourceDir, Assets.Versions));
+            var versions = Assets.LoadVersions(Path.Combine(sourceDir, Assets.VersionsFileName));
             foreach (var file in versions.bundleRefList) {
                 if (file.location == 1) {
                     var destFile = Path.Combine(dir, file.name);
@@ -429,7 +429,7 @@ namespace libx {
                     File.Copy(Path.Combine(sourceDir, file.name), destFile);
                 }
             }
-            File.Copy(Path.Combine(sourceDir, Assets.Versions), Path.Combine(dir, Assets.Versions));
+            File.Copy(Path.Combine(sourceDir, Assets.VersionsFileName), Path.Combine(dir, Assets.VersionsFileName));
         }
 
         public static void ViewVersions(string path) {

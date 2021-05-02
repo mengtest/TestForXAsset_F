@@ -9,8 +9,6 @@ namespace libx {
         public Text progressText;
 
         private void Start() {
-            Assets.LoadAsset(R.GetPrefab("Assets/XAsset/Demo/UI/Prefabs/MessageBox"), typeof(GameObject));
-
             buttonBack.onClick.AddListener(Back);
             if (Assets.currentVersions != null) {
                 var patches = Assets.currentVersions.patchList;

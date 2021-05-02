@@ -39,12 +39,13 @@ namespace libx {
             // 设置校验类型
             Assets.verifyBy = verifyBy;
             // 设置
-            Assets.searchPaths = searchPaths;
+            Assets.searchPathArray = searchPaths;
             // Assets.patches4Init
             Assets.patches4Init = patches4Init;
 
             // 初始化
             Assets.Initialize(error => {
+                
                 if (!string.IsNullOrEmpty(error)) {
                     Debug.LogError(error);
                     return;

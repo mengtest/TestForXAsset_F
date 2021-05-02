@@ -150,10 +150,13 @@ namespace libx {
         }
 
 
+        // BuildRules.OnLoadAsset
         public void OnLoadAsset(string assetPath) {
+            // 
             if (autoRecord && Assets.development) {
                 GroupAsset(assetPath, GetGroup(assetPath));
             } else {
+                // 校验文件路径
                 if (validateAssetPath) {
                     if (assetPath.Contains("Assets")) {
                         if (File.Exists(assetPath)) {
@@ -183,7 +186,10 @@ namespace libx {
             return groupBy;
         }
 
+        // BuildRules.OnUnloadAsset
+        // 卸载资源，暂无实现
         public void OnUnloadAsset(string assetPath) {
+
         }
 
         #region API

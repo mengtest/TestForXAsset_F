@@ -76,7 +76,7 @@ namespace libx {
 
         [MenuItem("XASSET/View/Bundles")]
         private static void ViewBundles() {
-            EditorUtility.OpenWithDefaultApp(Assets.Bundles);
+            EditorUtility.OpenWithDefaultApp(Assets.BundlesDirName);
         }
 
         [MenuItem("XASSET/View/Download")]

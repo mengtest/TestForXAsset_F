@@ -30,9 +30,14 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace libx {
+
+    // 更新界面
     public class UpdateScreen : MonoBehaviour {
+        // 清除按钮
         public Button buttonClear;
+        // 关于按钮
         public Button buttonAbout;
+        // 开始更新按钮
         public Button buttonStart;
         public Slider progressBar;
         public Text progressText;
@@ -57,6 +62,7 @@ namespace libx {
             progressBar.value = progress;
         }
 
+        // 显示进度信息
         private void OnMessage(string msg) {
             progressText.text = msg;
         }
@@ -76,7 +82,7 @@ namespace libx {
         public void Clear() {
             MessageBox.Show("提示", "清除数据后所有数据需要重新下载，请确认！,", cleanup => {
                 if (cleanup) {
-                    File.Delete(Assets.updatePath + "/" + Assets.Versions);
+                    File.Delete(Assets.updatePath + "/" + Assets.VersionsFileName);
                     PlayerPrefs.DeleteAll();
                     PlayerPrefs.Save();
                     OnMessage("数据清除完毕, TOUCH TO START");
@@ -88,6 +94,7 @@ namespace libx {
 
         // 开始更新
         public void StartUpdate() {
+
 #if UNITY_EDITOR
             if (Assets.development) {
                 StartCoroutine(EnterLevel());
@@ -104,6 +111,7 @@ namespace libx {
                     }
                 }, "重试", "退出");
             } else {
+                // 先下载 Versions
                 Assets.DownloadVersions(error => {
                     if (!string.IsNullOrEmpty(error)) {
                         MessageBox.Show("提示", string.Format("获取服务器版本失败：{0}", error), retry => {
@@ -114,9 +122,10 @@ namespace libx {
                             }
                         });
                     } else {
-                        Downloader downloader
-                        ;
+                        Downloader downloader;
+
                         // 按分包下载版本更新，返回true的时候表示需要下载，false的时候，表示不需要下载
+                        // 下载需要的资源
                         if (Assets.DownloadAll(Assets.patches4Init, out downloader)) {
                             var totalSize = downloader.size;
                             var tips = string.Format("发现内容更新，总计需要下载 {0} 内容", Downloader.GetDisplaySize(totalSize));

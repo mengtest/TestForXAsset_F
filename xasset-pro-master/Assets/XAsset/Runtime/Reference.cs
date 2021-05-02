@@ -33,6 +33,7 @@ namespace libx {
 
         private List<Object> _requires = null;
 
+        // 被引用数量 是否 小于等于0
         public bool IsUnused() {
             return refCount <= 0;
         }
@@ -56,10 +57,12 @@ namespace libx {
 
         public int refCount { get; private set; }
 
+        // 被引用加1
         public virtual void Retain() {
             refCount++;
         }
 
+        // 被引用减1
         public virtual void Release() {
             refCount--;
             if (refCount < 0) {

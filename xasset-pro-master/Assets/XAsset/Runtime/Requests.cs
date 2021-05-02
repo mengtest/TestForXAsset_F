@@ -35,16 +35,20 @@ using Object = UnityEngine.Object;
 
 namespace libx {
     public enum LoadState {
-        Init,
-        Loading,
-        Loaded,
-        Unload,
+        Init,   // 初始状态
+        Loading,    // 加载中
+        Loaded, // 加载完成
+        Unload, // 卸载
     }
 
+    // AssetRequest
     public class AssetRequest : Reference, IEnumerator {
+        // 包含的 asset 的类型
         public Type assetType;
+        // 请求的地址
         public string url;
 
+        // 加载状态
         private LoadState _loadState = LoadState.Init;
         public LoadState loadState {
             get {
@@ -109,6 +113,8 @@ namespace libx {
             loadState = LoadState.Unload;
         }
 
+        // AssetRequest.Update()
+        // 是否正在更新中
         internal virtual bool Update() {
             if (!isDone)
                 return true;
@@ -311,7 +317,9 @@ namespace libx {
         }
     }
 
+    // 场景请求（同步）
     public class SceneAssetRequest : AssetRequest {
+        // 场景加载模式
         public readonly LoadSceneMode loadSceneMode;
         protected readonly string sceneName;
 
@@ -319,8 +327,10 @@ namespace libx {
 
         public List<SceneAssetRequest> additives { get; set; }
 
-        protected BundleRequest bundle;
-        protected List<BundleRequest> children = new List<BundleRequest>();
+        // 包含的 BundleRequest
+        protected BundleRequest bundleRequest;
+        // 包含的 BundleRequest 的 依赖 BundleRequest
+        protected List<BundleRequest> childrenBundleRequest = new List<BundleRequest>();
 
         public SceneAssetRequest(string path, bool addictive) {
             url = path;
@@ -333,13 +343,15 @@ namespace libx {
             get { return 1; }
         }
 
+        // SceneAssetRequest.Load()
+        // 场景请求（同步）
         internal override void Load() {
             if (!string.IsNullOrEmpty(assetBundleName)) {
-                bundle = Assets.LoadBundle(assetBundleName);
-                if (bundle != null) {
+                bundleRequest = Assets.LoadBundle(assetBundleName);
+                if (bundleRequest != null) {
                     var bundles = Assets.GetChildren(assetBundleName);
                     foreach (var item in bundles) {
-                        children.Add(Assets.LoadBundle(item));
+                        childrenBundleRequest.Add(Assets.LoadBundle(item));
                     }
                     SceneManager.LoadScene(sceneName, loadSceneMode);
                 }
@@ -356,15 +368,20 @@ namespace libx {
             loadState = LoadState.Loaded;
         }
 
+        // SceneAssetRequest.Unload()
+        // 场景请求卸载
         internal override void Unload() {
-            if (bundle != null)
-                bundle.Release();
+            if (bundleRequest != null)
+                // 包含的 BundleRequest 被引用减1
+                bundleRequest.Release();
 
-            if (children.Count > 0) {
-                foreach (var item in children) {
+            if (childrenBundleRequest.Count > 0) {
+                // 所有的 包含的 BundleRequest 的 依赖 BundleRequest 被引用减1
+                foreach (var item in childrenBundleRequest) {
                     item.Release();
                 }
-                children.Clear();
+
+                childrenBundleRequest.Clear();
             }
 
             if (additives.Count > 0) {
@@ -382,13 +399,17 @@ namespace libx {
                     SceneManager.UnloadSceneAsync(sceneName);
             }
 
-            bundle = null;
+            bundleRequest = null;
+
+            // 
             loadState = LoadState.Unload;
         }
     }
 
+    // 场景请求（异步）
     public class SceneAssetAsyncRequest : SceneAssetRequest {
-        private AsyncOperation _request;
+        // 包含的 SceneManager.LoadSceneAsync 产生的 AsyncOperation
+        private AsyncOperation _asyncOperation;
 
         public SceneAssetAsyncRequest(string path, bool addictive)
             : base(path, addictive) {
@@ -404,21 +425,21 @@ namespace libx {
                     return 0;
                 }
 
-                if (_request != null) {
-                    return _request.progress * 0.7f + 0.3f;
+                if (_asyncOperation != null) {
+                    return _asyncOperation.progress * 0.7f + 0.3f;
                 }
 
-                if (bundle == null) {
+                if (bundleRequest == null) {
                     return 1;
                 }
 
-                var value = bundle.progress;
-                var max = children.Count;
+                var value = bundleRequest.progress;
+                var max = childrenBundleRequest.Count;
                 if (max <= 0)
                     return value * 0.3f;
 
                 for (int i = 0; i < max; i++) {
-                    var item = children[i];
+                    var item = childrenBundleRequest[i];
                     value += item.progress;
                 }
 
@@ -435,6 +456,7 @@ namespace libx {
             return false;
         }
 
+        // SceneAssetAsyncRequest.Update()
         internal override bool Update() {
             if (!base.Update()) {
                 return false;
@@ -444,23 +466,23 @@ namespace libx {
                 return true;
             }
 
-            if (_request == null) {
-                if (bundle == null) {
+            if (_asyncOperation == null) {
+                if (bundleRequest == null) {
                     error = "request == null";
                     loadState = LoadState.Loaded;
                     return false;
                 }
 
-                if (!bundle.isDone) {
+                if (!bundleRequest.isDone) {
                     return true;
                 }
 
-                if (OnError(bundle)) {
+                if (OnError(bundleRequest)) {
                     return false;
                 }
 
-                for (int i = 0; i < children.Count; i++) {
-                    var item = children[i];
+                for (int i = 0; i < childrenBundleRequest.Count; i++) {
+                    var item = childrenBundleRequest[i];
                     if (!item.isDone) {
                         return true;
                     }
@@ -474,7 +496,7 @@ namespace libx {
                 return true;
             }
 
-            if (_request.isDone) {
+            if (_asyncOperation.isDone) {
                 loadState = LoadState.Loaded;
                 return false;
             }
@@ -483,7 +505,7 @@ namespace libx {
 
         private void LoadSceneAsync() {
             try {
-                _request = SceneManager.LoadSceneAsync(sceneName, loadSceneMode);
+                _asyncOperation = SceneManager.LoadSceneAsync(sceneName, loadSceneMode);
                 loadState = LoadState.Loading;
             } catch (Exception e) {
                 Debug.LogException(e);
@@ -495,11 +517,15 @@ namespace libx {
         // SceneAssetAsyncRequest.Load()
         internal override void Load() {
             if (!string.IsNullOrEmpty(assetBundleName)) {
-                bundle = Assets.LoadBundleAsync(assetBundleName);
-                var bundles = Assets.GetChildren(assetBundleName);
-                foreach (var item in bundles) {
-                    children.Add(Assets.LoadBundleAsync(item));
+                bundleRequest = Assets.LoadBundleAsync(assetBundleName);
+                string[] childBundleNameArray = Assets.GetChildren(assetBundleName);
+
+                // 加载 每个 子 bundle
+                foreach (var item in childBundleNameArray) {
+                    childrenBundleRequest.Add(Assets.LoadBundleAsync(item));
                 }
+
+                // 加载 bundle 中
                 loadState = LoadState.Loading;
             } else {
                 LoadSceneAsync();
@@ -508,7 +534,7 @@ namespace libx {
 
         internal override void Unload() {
             base.Unload();
-            _request = null;
+            _asyncOperation = null;
         }
     }
 
@@ -602,30 +628,39 @@ namespace libx {
         }
     }
 
+    // BundleRequest 请求（同步）
     public class BundleRequest : AssetRequest {
         public AssetBundle assetBundle {
             get { return asset as AssetBundle; }
             internal set { asset = value; }
         }
 
+        // BundleRequest.Load()
         internal override void Load() {
+            // 官方API
             asset = AssetBundle.LoadFromFile(url);
             if (assetBundle == null)
                 error = url + " LoadFromFile failed.";
+            // 同步加载， 这里就加载成功了
             loadState = LoadState.Loaded;
         }
 
+        // BundleRequest.Unlad()
         internal override void Unload() {
             if (assetBundle == null)
                 return;
+            // AssetBundle 卸载
             assetBundle.Unload(true);
             assetBundle = null;
+
             loadState = LoadState.Unload;
         }
     }
 
+    // Bundle请求（异步）
     public class BundleAsyncRequest : BundleRequest {
-        private AssetBundleCreateRequest _request;
+        // 包含的 AssetBundelCreateRequest
+        private AssetBundleCreateRequest _assetBundleCreateRequest;
 
         public override float progress {
             get {
@@ -636,10 +671,10 @@ namespace libx {
                     return 0;
                 }
 
-                if (_request == null) {
+                if (_assetBundleCreateRequest == null) {
                     return 1;
                 }
-                return _request.progress;
+                return _assetBundleCreateRequest.progress;
             }
         }
 
@@ -649,8 +684,8 @@ namespace libx {
             }
 
             if (loadState == LoadState.Loading) {
-                if (_request.isDone) {
-                    assetBundle = _request.assetBundle;
+                if (_assetBundleCreateRequest.isDone) {
+                    assetBundle = _assetBundleCreateRequest.assetBundle;
                     if (assetBundle == null) {
                         error = string.Format("unable to load assetBundle:{0}", url);
                     }
@@ -661,10 +696,12 @@ namespace libx {
             return true;
         }
 
+        // BundleAsyncRequest.Load()
         internal override void Load() {
-            if (_request == null) {
-                _request = AssetBundle.LoadFromFileAsync(url);
-                if (_request == null) {
+            if (_assetBundleCreateRequest == null) {
+                // 官方API
+                _assetBundleCreateRequest = AssetBundle.LoadFromFileAsync(url);
+                if (_assetBundleCreateRequest == null) {
                     error = url + " LoadFromFile failed.";
                     return;
                 }
@@ -673,15 +710,16 @@ namespace libx {
             }
         }
 
+        // BundleAsyncRequest.UnLoad()
         internal override void Unload() {
-            _request = null;
+            _assetBundleCreateRequest = null;
             loadState = LoadState.Unload;
             base.Unload();
         }
 
         public override void LoadImmediate() {
             Load();
-            assetBundle = _request.assetBundle;
+            assetBundle = _assetBundleCreateRequest.assetBundle;
             if (assetBundle != null) {
                 Debug.LogWarning("LoadImmediate:" + assetBundle.name);
             }

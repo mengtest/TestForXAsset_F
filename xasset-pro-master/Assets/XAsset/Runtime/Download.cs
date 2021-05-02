@@ -30,10 +30,13 @@ using UnityEngine;
 using UnityEngine.Networking;
 
 namespace libx {
+    
+    // 抽象的下载
     public class Download {
-        private UnityWebRequest _request;
+        // 包含的 UnityWebRequest
+        private UnityWebRequest _unityWebRequest;
 
-        private FileStream _stream;
+        private FileStream _fileStream;
 
         public string filename { get; set; }
 
@@ -73,14 +76,14 @@ namespace libx {
             error = null;
             isFinished = false;
             canceled = false;
-            _stream = new FileStream(tempPath, FileMode.OpenOrCreate, FileAccess.Write);
-            position = _stream.Length;
+            _fileStream = new FileStream(tempPath, FileMode.OpenOrCreate, FileAccess.Write);
+            position = _fileStream.Length;
             if (position < len) {
-                _stream.Seek(position, SeekOrigin.Begin);
-                _request = UnityWebRequest.Get(url);
-                _request.SetRequestHeader("Range", "bytes=" + position + "-");
-                _request.downloadHandler = new DownloadHandler(this);
-                _request.SendWebRequest();
+                _fileStream.Seek(position, SeekOrigin.Begin);
+                _unityWebRequest = UnityWebRequest.Get(url);
+                _unityWebRequest.SetRequestHeader("Range", "bytes=" + position + "-");
+                _unityWebRequest.downloadHandler = new DownloadHandler(this);
+                _unityWebRequest.SendWebRequest();
             } else {
                 isFinished = true;
             }
@@ -105,21 +108,21 @@ namespace libx {
 
             canceled = true;
 
-            if (_request != null) {
-                _request.Abort();
+            if (_unityWebRequest != null) {
+                _unityWebRequest.Abort();
             }
 
             DisposeRequest();
         }
 
         public void Finish() {
-            if (_request != null && _request.isHttpError) {
-                error = string.Format("Error downloading [{0}]: [{1}] [{2}]", url, _request.responseCode,
-                    _request.error);
+            if (_unityWebRequest != null && _unityWebRequest.isHttpError) {
+                error = string.Format("Error downloading [{0}]: [{1}] [{2}]", url, _unityWebRequest.responseCode,
+                    _unityWebRequest.error);
             }
 
-            if (_request != null && _request.isNetworkError) {
-                error = string.Format("Error downloading [{0}]: [{1}]", url, _request.error);
+            if (_unityWebRequest != null && _unityWebRequest.isNetworkError) {
+                error = string.Format("Error downloading [{0}]: [{1}]", url, _unityWebRequest.error);
             }
 
             CloseStream();
@@ -150,16 +153,16 @@ namespace libx {
         }
 
         private void DisposeRequest() {
-            if (_request == null) return;
-            _request.Dispose();
-            _request = null;
+            if (_unityWebRequest == null) return;
+            _unityWebRequest.Dispose();
+            _unityWebRequest = null;
         }
 
         private void CloseStream() {
-            if (_stream == null) return;
-            _stream.Flush();
-            _stream.Close();
-            _stream = null;
+            if (_fileStream == null) return;
+            _fileStream.Flush();
+            _fileStream.Close();
+            _fileStream = null;
         }
 
         public void Retry() {
@@ -168,7 +171,7 @@ namespace libx {
         }
 
         public void Write(byte[] buffer, int index, int dataLength) {
-            _stream.Write(buffer, index, dataLength);
+            _fileStream.Write(buffer, index, dataLength);
             position += dataLength;
         }
 

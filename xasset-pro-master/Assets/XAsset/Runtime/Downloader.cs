@@ -30,6 +30,7 @@ using System.IO;
 using UnityEngine;
 
 namespace libx {
+    // 下载器
     public class Downloader {
         public static string GetDisplaySpeed(float downloadSpeed) {
             if (downloadSpeed >= 1024 * 1024) {
@@ -91,6 +92,8 @@ namespace libx {
         private bool _started;
         public float sampleTime = 1f;
 
+        // Downloader.Start()
+        // 开始下载
         public void Start() {
             _index = 0;
             _lastSize = 0L;

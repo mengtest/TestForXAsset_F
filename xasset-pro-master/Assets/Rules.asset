@@ -51,6 +51,10 @@ MonoBehaviour:
     assets:
     - Assets/XAsset/Demo/Scenes/Level.unity
     - Assets/XAsset/Demo/UI/Prefabs/MessageBox.prefab
+  - name: Level
+    assets:
+    - Assets/XAsset/Demo/Scenes/Additive.unity
+    - Assets/XAsset/Demo/UI/Prefabs/MessageBox.prefab
   bundleBuildList:
   - assetBundleName: _title
     assetNames:

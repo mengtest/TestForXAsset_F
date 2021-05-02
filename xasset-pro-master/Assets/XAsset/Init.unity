@@ -151,9 +151,7 @@ MonoBehaviour:
   searchPaths:
   - Assets/XAsset/Demo/Scenes
   - Assets/XAsset/Demo/UI/Prefabs
-  patches4Init:
-  - Title
-  - Splash
+  patches4Init: []
   updateAll: 1
 --- !u!4 &688479980
 Transform:
