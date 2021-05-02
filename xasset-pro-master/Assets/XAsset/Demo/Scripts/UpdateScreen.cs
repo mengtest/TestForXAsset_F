@@ -86,6 +86,7 @@ namespace libx {
             }, "清除");
         }
 
+        // 开始更新
         public void StartUpdate() {
 #if UNITY_EDITOR
             if (Assets.development) {
@@ -113,14 +114,15 @@ namespace libx {
                             }
                         });
                     } else {
-                        Downloader handler;
+                        Downloader downloader
+                        ;
                         // 按分包下载版本更新，返回true的时候表示需要下载，false的时候，表示不需要下载
-                        if (Assets.DownloadAll(Assets.patches4Init, out handler)) {
-                            var totalSize = handler.size;
+                        if (Assets.DownloadAll(Assets.patches4Init, out downloader)) {
+                            var totalSize = downloader.size;
                             var tips = string.Format("发现内容更新，总计需要下载 {0} 内容", Downloader.GetDisplaySize(totalSize));
                             MessageBox.Show("提示", tips, download => {
                                 if (download) {
-                                    handler.onUpdate += delegate (long progress, long size, float speed) {
+                                    downloader.onUpdate += delegate (long progress, long size, float speed) {
                                         //刷新界面
                                         OnMessage(string.Format("下载中...{0}/{1}, 速度：{2}",
                                             Downloader.GetDisplaySize(progress),
@@ -128,8 +130,8 @@ namespace libx {
                                             Downloader.GetDisplaySpeed(speed)));
                                         OnProgress(progress * 1f / size);
                                     };
-                                    handler.onFinished += OnComplete;
-                                    handler.Start();
+                                    downloader.onFinished += OnComplete;
+                                    downloader.Start();
                                 } else {
                                     Quit();
                                 }

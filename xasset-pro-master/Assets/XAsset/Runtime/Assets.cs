@@ -41,8 +41,11 @@ namespace libx {
         private const string KVersions = "version";
         private const string TAG = "[Assets]";
 
+        // 编辑器下 加载资源的委托
         public static Func<string, Type, Object> assetLoader { get; set; }
+        // 加载资源完成时的委托
         public static Action<string> onAssetLoaded { get; set; }
+        // 卸载资源
         public static Action<string> onAssetUnloaded { get; set; }
         public static Func<Versions> versionsLoader { get; set; }
 
@@ -62,10 +65,11 @@ namespace libx {
 
         public static VerifyBy verifyBy = VerifyBy.CRC;
 
+        // Assets.development
         public static bool development { get; set; }
-
+        // Assets.updateAll
         public static bool updateAll { get; set; }
-
+        // Assets.loggable
         public static bool loggable { get; set; }
 
         public static string downloadURL { get; set; }
@@ -75,7 +79,7 @@ namespace libx {
         public static string updatePath { get; set; }
 
         public static string[] patches4Init { get; set; }
-
+        // Assets.searchPaths
         public static string[] searchPaths { get; set; }
 
         public static string[] GetAllAssetPaths() {
@@ -84,28 +88,37 @@ namespace libx {
             return assets.ToArray();
         }
 
+        // Assets.Initializer 初始化
         public static void Initialize(Action<string> completed = null) {
             var instance = FindObjectOfType<Assets>();
             if (instance == null) {
+                // 添加 Assets
                 instance = new GameObject("Assets").AddComponent<Assets>();
                 DontDestroyOnLoad(instance.gameObject);
+                // 网络改变监控
                 NetworkMonitor.Instance.onReachabilityChanged += OnReachablityChanged;
+                // 低内存调用
                 Application.lowMemory += ApplicationOnLowMemory;
             }
 
             if (string.IsNullOrEmpty(basePath))
+                // S 目录
                 basePath = Application.streamingAssetsPath + "/" + Bundles + "/";
 
             if (string.IsNullOrEmpty(updatePath))
+                // P 目录
                 updatePath = Application.persistentDataPath + "/" + Bundles + "/";
 
+            // 创建 P 目录
             if (!Directory.Exists(updatePath))
                 Directory.CreateDirectory(updatePath);
 
+            // 获取平台名
             if (string.IsNullOrEmpty(platform)) {
                 platform = GetPlatformForAssetBundles(Application.platform);
             }
 
+            // 
             if (Application.platform == RuntimePlatform.OSXEditor ||
                 Application.platform == RuntimePlatform.OSXPlayer ||
                 Application.platform == RuntimePlatform.IPhonePlayer) {
@@ -115,7 +128,8 @@ namespace libx {
                 _localProtocol = "file:///";
             }
 
-            var onLoadVersions = new Action<Versions>(versions => {
+            // 加载完 Versions 的回调
+            Action<Versions> onLoadVersions = new Action<Versions>(versions => {
                 currentVersions = versions;
                 ReloadVersions(currentVersions);
                 Log("Initialize");
@@ -129,19 +143,34 @@ namespace libx {
                     completed(null);
             });
 
+            // 开发模式
             if (development) {
                 if (versionsLoader != null)
                     onLoadVersions(versionsLoader());
+            // 非开发模式
             } else {
-                var filename = string.Format("{0}buildInVersions.bundle", updatePath);
-                var request = Download(GetLocalURL(Versions), filename);
-                request.SendWebRequest().completed += operation => {
-                    if (!string.IsNullOrEmpty(request.error)) {
+                // 本地要保存的地址
+                // e.g. C:/Users/void87/AppData/LocalLow/mmdnb/xasset-pro/Bundles/buildInVersions.bundle
+                string buildInVersionPath = string.Format("{0}buildInVersions.bundle", updatePath);
+
+                // LocalURL 本地要下载的地址
+                // e.g. file:///D:/Projects/UnityProjects/TestForXAsset5.1/xasset-pro-master/Bundles/Windows/versions.bundle
+                // file:///D:/Projects/UnityProjects/TestForXAsset5.1/xasset-pro-master/Assets/StreamingAssets/Bundles/versions.bundle
+                UnityWebRequest unityWebRequest = Download(GetLocalURL(Versions), buildInVersionPath);
+
+                // 下载  本地 versions.bundle 到 buildInVersions.bundle
+                unityWebRequest.SendWebRequest().completed += operation => {
+                    // 下载不了 本地, 进不了游戏
+                    if (!string.IsNullOrEmpty(unityWebRequest.error)) {
                         if (completed != null)
-                            completed(request.error);
+                            completed(unityWebRequest.error);
                     } else {
-                        // 处理覆盖安装的 case
-                        buildinVersions = LoadVersions(filename);
+                        // 加载 P 目录下的 Versions
+                        buildinVersions = LoadVersions(buildInVersionPath);
+
+                        //// 本地版本暂时设置为 0.0.0
+                        //PlayerPrefs.SetString(KVersions, "0.0.0");
+
                         if (OverlayInstallation(buildinVersions.ver)) {
                             onLoadVersions(buildinVersions);
                             var filesInBuild = buildinVersions.GetFilesInBuild();
@@ -151,17 +180,21 @@ namespace libx {
                                     File.Delete(path);
                                 }
                             }
+
                             PlayerPrefs.SetString(KVersions, buildinVersions.ver);
                         } else {
+                            // 原代码 这里永远都 是 FALSE
                             var path = GetDownloadURL(Versions);
+
                             onLoadVersions(File.Exists(path) ? LoadVersions(path) : buildinVersions);
                         }
                     }
-                    request.Dispose();
+                    unityWebRequest.Dispose();
                 };
             }
         }
 
+        // 覆盖安装(暂时都是覆盖安装)
         private static bool OverlayInstallation(string version) {
             var innerVersion = PlayerPrefs.GetString(KVersions);
             if (string.IsNullOrEmpty(innerVersion)) {
@@ -169,33 +202,38 @@ namespace libx {
             }
             var v1 = new System.Version(version);
             var v2 = new System.Version(innerVersion);
-            return v1 > v2;
+            // return v1 > v2;
+            return true;
         }
 
         private static void ReloadVersions(Versions versions) {
             ActiveVariants.Clear();
             AssetToBundles.Clear();
             BundleToChildren.Clear();
-            var assets = versions.assets;
-            var dirs = versions.dirs;
-            var bundles = versions.bundles;
+            var assets = versions.assetRefList;
+            var dirs = versions.dirArray;
+            var bundles = versions.bundleRefList;
             var activeVariants = versions.activeVariants;
             foreach (var item in bundles)
-                BundleToChildren[item.name] = Array.ConvertAll(item.children, id => bundles[id].name);
+                BundleToChildren[item.name] = Array.ConvertAll(item.childrenBundleIDArray, id => bundles[id].name);
             foreach (var item in assets) {
-                var path = string.Format("{0}/{1}", dirs[item.dir], item.name);
-                if (item.bundle >= 0 && item.bundle < bundles.Count)
-                    AssetToBundles[path] = bundles[item.bundle].name;
+                var path = string.Format("{0}/{1}", dirs[item.dirID], item.name);
+                if (item.bundleID >= 0 && item.bundleID < bundles.Count)
+                    AssetToBundles[path] = bundles[item.bundleID].name;
                 else
                     AssetToBundles[path] = string.Empty;
             }
             ActiveVariants.AddRange(activeVariants);
         }
 
+        // 下载 Versions
         public static void DownloadVersions(Action<string> completed) {
+            // e.g. http://192.168.1.113/Bundles/Windows/versions.bundle
             var url = GetDownloadURL(Versions);
             LogFormat("DownloadVersions:{0}", url);
+            // e.g. C:/Users/void87/AppData/Local/Temp/mmdnb/xasset-pro/versions.bundle
             var filename = Application.temporaryCachePath + "/" + Versions;
+
             var request = Download(url, filename);
             request.SendWebRequest().completed += operation => {
                 if (string.IsNullOrEmpty(request.error)) {
@@ -212,10 +250,14 @@ namespace libx {
             };
         }
 
+        // 加载Version
+        // filename e.g. C:/Users/void87/AppData/LocalLow/mmdnb/xasset-pro/Bundles/buildInVersions.bundle
         public static Versions LoadVersions(string filename, bool outside = false) {
+            // 不存在 直接创建一个初始的 Versions
             if (!File.Exists(filename))
                 return new Versions();
             try {
+                // 反序列化 Versions
                 using (var stream = File.OpenRead(filename)) {
                     var reader = new BinaryReader(stream);
                     var ver = new Versions();
@@ -229,9 +271,9 @@ namespace libx {
             }
         }
 
-        public static bool DownloadAll(string[] patches, out Downloader handler) {
+        public static bool DownloadAll(string[] patches, out Downloader downLoader) {
             if (updateAll) {
-                return DownloadAll(out handler);
+                return DownloadAll(out downLoader);
             }
 
             var bundles = new List<BundleRef>();
@@ -250,8 +292,8 @@ namespace libx {
                 foreach (var item in bundles)
                     downloader.AddDownload(GetDownloadURL(item.name), updatePath + item.name, item.crc, item.len);
                 Downloaders.Add(downloader);
-                handler = downloader;
-                handler.onFinished += () => {
+                downLoader = downloader;
+                downLoader.onFinished += () => {
                     foreach (var item in patches) {
                         PlayerPrefs.SetString(item, currentVersions.ver);
                     }
@@ -259,17 +301,21 @@ namespace libx {
                 return true;
             }
 
-            handler = null;
+            downLoader = null;
             return false;
         }
 
         public static bool DownloadAll(out Downloader handler) {
             var bundles = new List<BundleRef>();
-            for (var i = 0; i < currentVersions.bundles.Count; i++) {
-                var bundle = currentVersions.bundles[i];
-                if (IsNew(bundle)) {
-                    bundles.Add(bundle);
-                }
+            for (var i = 0; i < currentVersions.bundleRefList.Count; i++) {
+                var bundle = currentVersions.bundleRefList[i];
+                // 原代码
+                //if (IsNew(bundle)) {
+                //    bundles.Add(bundle);
+                //}
+
+                // add by 黄鑫 2021年5月1日
+                bundles.Add(bundle);
             }
 
             if (bundles.Count > 0) {
@@ -295,6 +341,7 @@ namespace libx {
                 downloader.UnPause();
         }
 
+        // 加载场景 (异步）
         public static SceneAssetRequest LoadSceneAsync(string path, bool additive = false) {
             Assert.IsNotNull(path, "path != null");
             string assetBundleName;
@@ -425,6 +472,7 @@ namespace libx {
             return string.Format("{0}{1}/{2}", downloadURL, platform, filename);
         }
 
+        // 获取基于basePath的URL
         private static string GetLocalURL(string filename) {
             return _localProtocol + string.Format("{0}{1}", basePath, filename);
         }
@@ -482,6 +530,7 @@ namespace libx {
             UpdateBundles();
         }
 
+        // 更新 Asset
         private static void UpdateAssets() {
             for (var i = 0; i < LoadingAssets.Count; ++i) {
                 var request = LoadingAssets[i];
@@ -567,6 +616,7 @@ namespace libx {
 
         private static bool updateUnusedAssetsNow { get; set; }
 
+        // 平台名
         public static string platform {
             get { return _platform; }
 
@@ -604,6 +654,7 @@ namespace libx {
             RemoveUnusedAssets();
         }
 
+        // 资源加载完成
         private static void OnAssetLoaded(string path) {
             if (onAssetLoaded != null)
                 onAssetLoaded(path);
@@ -671,7 +722,9 @@ namespace libx {
 
         #region Paths
 
+        // 平台名
         private static string _platform;
+        // 文件协议, iOS file:// windows file:///
         private static string _localProtocol;
 
         private static string GetSearchPath(string path, out string assetBundleName) {

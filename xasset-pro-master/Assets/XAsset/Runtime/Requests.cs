@@ -160,6 +160,7 @@ namespace libx {
             assetBundleName = bundle;
         }
 
+        // BundleAssetRequest.Load()
         internal override void Load() {
             bundle = Assets.LoadBundle(assetBundleName);
             var bundles = Assets.GetChildren(assetBundleName);

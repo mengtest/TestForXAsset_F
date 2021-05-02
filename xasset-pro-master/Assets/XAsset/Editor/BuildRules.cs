@@ -38,27 +38,23 @@ namespace libx {
         Directory,
     }
 
+    // 要打包的 Asset 信息
     [Serializable]
     public class AssetBuild {
         // 要打包的文件名
         // e.g. Assets/XAsset/Extend/TestImage/Btn_Tab1_n 1.png
         public string assetName; 
-
+        
         public string groupName;
         // ab包的名字
         public string bundleName = string.Empty;
-
+        // 没有用到
         public int id;
         // 打包规则
         public GroupBy groupBy = GroupBy.Filename;
     }
 
-    [Serializable]
-    public class PatchBuild {
-        public string name;
-        public List<string> assets = new List<string>();
-    }
-
+    // 要打包的 bundle 信息
     [Serializable]
     public class BundleBuild {
         public string assetBundleName;  // bundle 名
@@ -71,6 +67,12 @@ namespace libx {
                 assetNames = assetNames.ToArray(),
             };
         }
+    }
+
+    [Serializable]
+    public class PatchBuild {
+        public string name;
+        public List<string> assets = new List<string>();
     }
 
     public class BuildRules : ScriptableObject {
@@ -100,6 +102,7 @@ namespace libx {
         private readonly Dictionary<string, string> _unexplicitDict = new Dictionary<string, string>();
 
         [Header("版本号")]
+        // 
         [Tooltip("构建的版本号")] public int build;
         public int major;
         public int minor;
@@ -220,14 +223,16 @@ namespace libx {
             }
         }
 
+        // build 版本 加1
         public string AddVersion() {
             build = build + 1;
             return GetVersion();
         }
 
+        // 获取 Version
         public string GetVersion() {
-            var ver = new Version(major, minor, build);
-            return ver.ToString();
+            Version version = new Version(major, minor, build);
+            return version.ToString();
         }
 
         // 解析 Rules.asset

@@ -31,8 +31,8 @@ using System.Text;
 
 namespace libx {
     public enum VerifyBy {
-        Size,
-        CRC
+        Size,   // 文件大小
+        CRC // 文件 CRC
     }
 
     [Serializable]
@@ -62,37 +62,39 @@ namespace libx {
         }
     }
 
+    // Asset名, 所在Bundle, 所在 目录, 序列化， 反序列化
     [Serializable]
     public class AssetRef {
-        public string name;
-        public int bundle;
-        public int dir;
+        public string name; // asset名
+        public int bundleID;  // 所在的 BundleRef 索引
+        public int dirID; // 所在的文件夹索引
 
         public void Serialize(BinaryWriter writer) {
-            writer.Write(name);
-            writer.Write(bundle);
-            writer.Write(dir);
+            writer.Write(name); // 写入 名字 e.g. Image.prefab
+            writer.Write(bundleID);   // 写入 BudleRef 索引 e.g. 0
+            writer.Write(dirID);  // 写入所在文件夹的索引 e.g. 0
         }
 
+        // 反序列化 AssetRef
         public void Deserialize(BinaryReader reader) {
-            name = reader.ReadString();
-            bundle = reader.ReadInt32();
-            dir = reader.ReadInt32();
+            name = reader.ReadString(); // 读取 名字 e.g. Image.prefab
+            bundleID = reader.ReadInt32();  // 读取 BudleRef 索引 e.g. 0
+            dirID = reader.ReadInt32(); // 读取所在文件夹的索引 e.g. 0
         }
 
         public override string ToString() {
-            return string.Format("name={0}, bundle={1}, dir={2}", name, bundle, dir);
+            return string.Format("name={0}, bundle={1}, dir={2}", name, bundleID, dirID);
         }
     }
 
     [Serializable]
     public class BundleRef {
-        public string name;
-        public int[] children = new int[0];
-        public long len;
-        public string hash;
-        public string crc;
-        public int id { get; set; }
+        public string name; // bundle名 e.g. assets_xasset_extend_testprefab1
+        public int[] childrenBundleIDArray = new int[0]; // 依赖的 bundle 索引
+        public long len;    // 文件长度  通过 File 读取
+        public string hash; // 文件 hash 通过 AssetBundleManifest.GetAssetBundleHash() 计算获得（官方API)
+        public string crc;  // crc Utility.GetCRC32Hash() 计算所得
+        public int id { get; set; } // bundle 索引
         public byte location { get; set; }
 
         public bool Equals(BundleRef other) {
@@ -106,64 +108,80 @@ namespace libx {
             return len == other.len && crc.Equals(other.crc, StringComparison.OrdinalIgnoreCase);
         }
 
+        // BundleRef 序列化
         public void Serialize(BinaryWriter writer) {
-            writer.Write(location);
-            writer.Write(len);
-            writer.Write(name);
-            writer.Write(hash);
-            writer.Write(crc);
-            var clen = children.Length;
-            writer.Write(clen);
-            foreach (var child in children) {
-                writer.Write(child);
+            writer.Write(location); // 写入 位置  e.g. 1
+            writer.Write(len);  // 写入文件长度 e.g. 4799
+            writer.Write(name); // 写入  名字 e.g. assets_xasset_extend_testimage
+            writer.Write(hash); // 写入  hash e.g. 2484ef716428f14af8c0dd3a9d3efffb
+            writer.Write(crc);  // 写入  crc e.g. c752f15b
+            int childrenBundleCount = childrenBundleIDArray.Length;
+            // 写入 依赖的  Bundle 数量
+            writer.Write(childrenBundleCount);
+            // 写入依赖的 bundleid
+            foreach (int childrenBundleID in childrenBundleIDArray) {
+                writer.Write(childrenBundleID);
             }
         }
 
+        // 反序列化 BundleRef
         public void Deserialize(BinaryReader reader) {
-            location = reader.ReadByte();
-            len = reader.ReadInt64();
-            name = reader.ReadString();
-            hash = reader.ReadString();
-            crc = reader.ReadString();
-            var clen = reader.ReadInt32();
-            children = new int[clen];
-            for (var i = 0; i < clen; i++) {
-                children[i] = reader.ReadInt32();
+            location = reader.ReadByte();   // 读取 位置 e.g. 1
+            len = reader.ReadInt64();   // 读取文件长度 e.g. 4799
+            name = reader.ReadString(); // 读取bundle名字 e.g. assets_xasset_extend_testimage
+            hash = reader.ReadString(); // 读取 bundle  hash e.g. 2484ef716428f14af8c0dd3a9d3efffb
+            crc = reader.ReadString();  // 读取  crc e.g. c752f15b
+            // 读取 依赖的 bundle 数量
+            int childrenBundleCount = reader.ReadInt32();
+            childrenBundleIDArray = new int[childrenBundleCount];
+            // 读取 依赖的 bundle 索引
+            for (var i = 0; i < childrenBundleCount; i++) {
+                childrenBundleIDArray[i] = reader.ReadInt32();
             }
         }
 
         public override string ToString() {
             return string.Format("id={0}, name={1}, len={2}, location={3}, hash={4}, crc={5}, children={6}", id, name, len,
-                    location, hash, crc, string.Join(",", Array.ConvertAll(children, input => input.ToString())));
+                    location, hash, crc, string.Join(",", Array.ConvertAll(childrenBundleIDArray, input => input.ToString())));
         }
     }
 
     public class Versions {
         public string ver = new Version(0, 0, 0).ToString();
         public string[] activeVariants = new string[0];
-        public string[] dirs = new string[0];
-        public List<AssetRef> assets = new List<AssetRef>();
-        public List<BundleRef> bundles = new List<BundleRef>();
-        public List<Patch> patches = new List<Patch>();
+        // 包含的目录
+        // e.g.
+        // ["Assets/XAsset/Extend/TestPrefab1", ...]
+        public string[] dirArray = new string[0];
 
-        private readonly Dictionary<string, BundleRef> _bundles = new Dictionary<string, BundleRef>();
-        private readonly Dictionary<string, Patch> _patches = new Dictionary<string, Patch>();
+        // 包含的 AssetRef List
+        public List<AssetRef> assetRefList = new List<AssetRef>();
+        // 包含的 BundleRef List
+        public List<BundleRef> bundleRefList = new List<BundleRef>();
+        // 包含的 Patch List
+        public List<Patch> patchList = new List<Patch>();
+
+        // e.g. [assets_xasset_extend_testimage, BundlRef]
+        private readonly Dictionary<string, BundleRef> _bundleName2BundleRefDict = new Dictionary<string, BundleRef>();
+        private readonly Dictionary<string, Patch> _patchName2PatchDict = new Dictionary<string, Patch>();
+
+        // 
         public bool outside { get; set; }
 
         public override string ToString() {
             var sb = new StringBuilder();
             sb.AppendLine("ver:\n" + ver);
             sb.AppendLine("activeVariants:\n" + string.Join(",", activeVariants));
-            sb.AppendLine("dirs:\n" + string.Join("\n", dirs));
-            sb.AppendLine("assets:\n" + string.Join("\n", assets.ConvertAll(input => input.ToString()).ToArray()));
-            sb.AppendLine("bundles:\n" + string.Join("\n", bundles.ConvertAll(input => input.ToString()).ToArray()));
-            sb.AppendLine("patches:\n" + string.Join("\n", patches.ConvertAll(input => input.ToString()).ToArray()));
+            sb.AppendLine("dirs:\n" + string.Join("\n", dirArray));
+            sb.AppendLine("assets:\n" + string.Join("\n", assetRefList.ConvertAll(input => input.ToString()).ToArray()));
+            sb.AppendLine("bundles:\n" + string.Join("\n", bundleRefList.ConvertAll(input => input.ToString()).ToArray()));
+            sb.AppendLine("patches:\n" + string.Join("\n", patchList.ConvertAll(input => input.ToString()).ToArray()));
             return sb.ToString();
         }
 
         public bool Contains(BundleRef bundle) {
             BundleRef file;
-            if (_bundles.TryGetValue(bundle.name, out file)) {
+            if (_bundleName2BundleRefDict.TryGetValue(bundle.name, out file)) {
                 if (file.Equals(bundle)) {
                     return true;
                 }
@@ -174,17 +192,17 @@ namespace libx {
 
         public BundleRef GetBundle(string name) {
             BundleRef file;
-            _bundles.TryGetValue(name, out file);
+            _bundleName2BundleRefDict.TryGetValue(name, out file);
             return file;
         }
 
         public List<BundleRef> GetFiles(string patchName) {
             var list = new List<BundleRef>();
             Patch patch;
-            if (_patches.TryGetValue(patchName, out patch)) {
+            if (_patchName2PatchDict.TryGetValue(patchName, out patch)) {
                 if (patch.files.Count > 0) {
                     foreach (var file in patch.files) {
-                        var item = bundles[file];
+                        var item = bundleRefList[file];
                         list.Add(item);
                     }
                 }
@@ -193,9 +211,10 @@ namespace libx {
             return list;
         }
 
+        // Versions.GetFilesInBuild()
         public List<BundleRef> GetFilesInBuild() {
             var list = new List<BundleRef>();
-            foreach (var bundle in bundles) {
+            foreach (var bundle in bundleRefList) {
                 if (bundle.location == 1) {
                     list.Add(bundle);
                 }
@@ -203,69 +222,99 @@ namespace libx {
             return list;
         }
 
+        // Version.Serialize()
         public void Serialize(BinaryWriter writer) {
+            // 写入版本 e.g. "0.0.1"
             writer.Write(ver);
-
-            writer.Write(dirs.Length);
-            foreach (var dir in dirs)
+            // 写入 文件夹长度 e.g. 5
+            writer.Write(dirArray.Length);
+            // 写入文件夹, e.g. Assets/XAsset/Extend/TestPrefab1
+            foreach (var dir in dirArray)
                 writer.Write(dir);
 
+            // 写入  activeVariants 长度
             writer.Write(activeVariants.Length);
             foreach (var variant in activeVariants)
                 writer.Write(variant);
 
-            writer.Write(assets.Count);
-            foreach (var asset in assets)
+            // 写入 AssetRef 数量
+            writer.Write(assetRefList.Count);
+            foreach (var asset in assetRefList)
+                // AssetRef.Serialize()
                 asset.Serialize(writer);
 
-            writer.Write(bundles.Count);
-            foreach (var file in bundles)
+            // 写入 BundleRef 数量
+            writer.Write(bundleRefList.Count);
+            // BundleRef.Serialize()
+            foreach (var file in bundleRefList)
                 file.Serialize(writer);
 
-            writer.Write(patches.Count);
-            foreach (var patch in patches)
+            // 写入 Patch 数量
+            writer.Write(patchList.Count);
+            // Patch.Serialize()
+            foreach (var patch in patchList)
                 patch.Serialize(writer);
         }
 
+        // 反序列化 Versions
         public void Deserialize(BinaryReader reader) {
+            // 读取版本 e.g. "0.0.1"
             ver = reader.ReadString();
-            var count = reader.ReadInt32();
-            dirs = new string[count];
+            // 读取 目录 数量 e.g. 4
+            int count = reader.ReadInt32();
+            // 读取 每个目录的名字
+            // e.g.
+            //  Assets/XAsset/Extend/TestPrefab1
+            //  Assets/XAsset/Extend/TestPrefab2
+            //  Assets/XAsset/Extend/TestPrefab3
+            //  Assets/XAsset/Extend/TestImage
+            dirArray = new string[count];
             for (var i = 0; i < count; i++) {
-                dirs[i] = reader.ReadString();
+                dirArray[i] = reader.ReadString();
             }
 
+            // 读取 activeVariants 的数量 e.g. 0
             count = reader.ReadInt32();
+            // 读取 每个 activeVariants 的名字
             activeVariants = new string[count];
             for (var i = 0; i < count; i++) {
                 activeVariants[i] = reader.ReadString();
             }
 
+            // 读取 AssetRef 的数量 e.g. 
             count = reader.ReadInt32();
             for (var i = 0; i < count; i++) {
-                var file = new AssetRef();
-                file.Deserialize(reader);
-                assets.Add(file);
+                AssetRef assetRef = new AssetRef();
+                // 反序列化每个  AssetRef
+                assetRef.Deserialize(reader);
+                assetRefList.Add(assetRef);
             }
 
+            // 获取 BundleRef 的数量
             count = reader.ReadInt32();
             for (var i = 0; i < count; i++) {
-                var file = new BundleRef();
-                file.Deserialize(reader);
-                file.id = bundles.Count;
+                BundleRef bundleRef = new BundleRef();
+                // 反序列化每个 BundleRef
+                bundleRef.Deserialize(reader);
+                // 设置 BundleRef 的索引
+                bundleRef.id = bundleRefList.Count;
+
                 if (outside) {
-                    file.location = 1;
+                    bundleRef.location = 1;
                 }
-                bundles.Add(file);
-                _bundles[file.name] = file;
+
+                bundleRefList.Add(bundleRef);
+                _bundleName2BundleRefDict[bundleRef.name] = bundleRef;
             }
 
+            // 读取 Patch 的数量
             count = reader.ReadInt32();
+            // 
             for (var i = 0; i < count; i++) {
                 var patch = new Patch();
                 patch.Deserialize(reader);
-                patches.Add(patch);
-                _patches[patch.name] = patch;
+                patchList.Add(patch);
+                _patchName2PatchDict[patch.name] = patch;
             }
         }
 

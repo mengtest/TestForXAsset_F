@@ -141,11 +141,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7235901d89e5f4b4a928c0ce58337518, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  splash: 1
+  splash: 0
   loggable: 1
   verifyBy: 1
-  downloadURL: http://192.168.1.108:7888/
-  development: 1
+  downloadURL: http://192.168.1.113/Bundles/
+  development: 0
   dontDestroyOnLoad: 1
   launchScene: Title
   searchPaths:

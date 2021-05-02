@@ -165,52 +165,74 @@ namespace libx {
             BuildVersions(assetBundleManifest, buildRules);
         }
 
-        private static void BuildVersions(AssetBundleManifest assetBundleManifest, BuildRules rules) {
+        private static void BuildVersions(AssetBundleManifest assetBundleManifest, BuildRules buidlRules) {
             // 获取所有的 bundle(官方API)
-            string[] allBundleArray = assetBundleManifest.GetAllAssetBundles();
+            string[] allAssetBundleArray = assetBundleManifest.GetAllAssetBundles();
 
-            var bundle2Ids = GetBundle2Ids(allBundleArray);
-            var bundles = GetBundles(assetBundleManifest, allBundleArray, bundle2Ids);
-            var ver = rules.AddVersion();
+            // 获取 bundle名 和 bundle 对应的 索引
+            Dictionary<string, int> bundle2IdDict = GetBundle2Ids(allAssetBundleArray);
 
-            var dirs = new List<string>();
-            var assets = new List<AssetRef>();
-            var patches = new List<Patch>();
-            var asset2Bundles = new Dictionary<string, BundleRef>();
-            foreach (var item in rules.assetBuildList) {
-                var path = item.assetName;
-                var dir = Path.GetDirectoryName(path);
+            // 获取所有的 BundleRef
+            List<BundleRef> bundleRefList = GetBundleRefList(assetBundleManifest, allAssetBundleArray, bundle2IdDict);
+
+            // build 版本 加1
+            string ver = buidlRules.AddVersion();
+
+            List<string> dirs = new List<string>();
+
+            List<AssetRef> assetRefList = new List<AssetRef>();
+
+            List<Patch> patchList = new List<Patch>();
+
+            // [assetName, BundeRf]
+            Dictionary<string, BundleRef> asset2BundleRefDict = new Dictionary<string, BundleRef>();
+
+            foreach (AssetBuild assetBuild in buidlRules.assetBuildList) {
+                string assetName = assetBuild.assetName;
+                // 获取文件夹
+                // e.g. Assets/XAsset/Extend/TestPrefab1
+                string dir = Path.GetDirectoryName(assetName);
+
                 if (!string.IsNullOrEmpty(dir)) {
                     dir = dir.Replace("\\", "/");
                 }
+
                 var index = dirs.FindIndex(o => o.Equals(dir));
+
                 if (index == -1) {
                     index = dirs.Count;
+                    // 将文件夹 添加到 dirs
                     dirs.Add(dir);
                 }
-                var asset = new AssetRef();
-                if (item.groupBy == GroupBy.None) {
-                    var id = AddBundle(path, asset, ref bundles);
-                    asset.bundle = id;
+
+                AssetRef assetRef = new AssetRef();
+
+                if (assetBuild.groupBy == GroupBy.None) {
+                    var id = AddBundle(assetName, assetRef, ref bundleRefList);
+                    assetRef.bundleID = id;
                 } else {
-                    bundle2Ids.TryGetValue(item.bundleName, out asset.bundle);
+                    bundle2IdDict.TryGetValue(assetBuild.bundleName, out assetRef.bundleID);
                 }
-                asset2Bundles[path] = bundles[asset.bundle];
-                asset.dir = index;
-                asset.name = Path.GetFileName(path);
-                assets.Add(asset);
+
+                asset2BundleRefDict[assetName] = bundleRefList[assetRef.bundleID];
+                assetRef.dirID = index;
+                // 文件名 e.g. Image.prefab
+                assetRef.name = Path.GetFileName(assetName);
+                assetRefList.Add(assetRef);
             }
 
             Func<List<string>, List<int>> getFiles = delegate (List<string> list) {
-                var ret = new List<int>();
-                foreach (var file in list) {
+                List<int> ret = new List<int>();
+
+                foreach (string file in list) {
                     BundleRef bundle;
-                    asset2Bundles.TryGetValue(file, out bundle);
+                    asset2BundleRefDict.TryGetValue(file, out bundle);
+
                     if (bundle != null) {
                         if (!ret.Contains(bundle.id)) {
                             ret.Add(bundle.id);
                         }
-                        foreach (var child in bundle.children) {
+                        foreach (var child in bundle.childrenBundleIDArray) {
                             if (!ret.Contains(child)) {
                                 ret.Add(child);
                             }
@@ -222,9 +244,9 @@ namespace libx {
                 return ret;
             };
 
-            for (var i = 0; i < rules.patchBuildList.Count; i++) {
-                var item = rules.patchBuildList[i];
-                patches.Add(new Patch {
+            for (var i = 0; i < buidlRules.patchBuildList.Count; i++) {
+                var item = buidlRules.patchBuildList[i];
+                patchList.Add(new Patch {
                     name = item.name,
                     files = getFiles(item.assets),
                 });
@@ -232,27 +254,35 @@ namespace libx {
 
             var versions = new Versions();
             versions.activeVariants = assetBundleManifest.GetAllAssetBundlesWithVariant();
-            versions.dirs = dirs.ToArray();
-            versions.assets = assets;
-            versions.bundles = bundles;
-            versions.patches = patches;
+            // 设置目录
+            versions.dirArray = dirs.ToArray();
+            // 设置 AssetRef
+            versions.assetRefList = assetRefList;
+            // 设置 BundleRef
+            versions.bundleRefList = bundleRefList;
+            // 设置 Patch
+            versions.patchList = patchList;
+            // 设置 Version
             versions.ver = ver;
 
-            if (rules.allAssetsToBuild) {
-                bundles.ForEach(obj => obj.location = 1);
+            // 整包
+            if (buidlRules.allAssetsToBuild) {
+                bundleRefList.ForEach(obj => obj.location = 1);
+            // 分包
             } else {
-                foreach (var patchName in rules.patchesInBuild) {
-                    var patch = versions.patches.Find((Patch item) => { return item.name.Equals(patchName); });
+                foreach (var patchName in buidlRules.patchesInBuild) {
+                    var patch = versions.patchList.Find((Patch item) => { return item.name.Equals(patchName); });
                     if (patch != null) {
                         foreach (var file in patch.files) {
-                            if (file >= 0 && file < bundles.Count) {
-                                bundles[file].location = 1;
+                            if (file >= 0 && file < bundleRefList.Count) {
+                                bundleRefList[file].location = 1;
                             }
                         }
                     }
                 }
             }
 
+            //  e.g. Bundles/Windows/versions.bundle
             versions.Save(outputPath + "/" + Assets.Versions);
         }
 
@@ -272,26 +302,30 @@ namespace libx {
                     crc = Utility.GetCRC32Hash(stream),
                     hash = string.Empty
                 };
-                asset.bundle = bundles.Count;
+                asset.bundleID = bundles.Count;
                 bundles.Add(bundle);
             }
-            return asset.bundle;
+            return asset.bundleID;
         }
 
-        private static List<BundleRef> GetBundles(AssetBundleManifest manifest, IEnumerable<string> allBundles, IDictionary<string, int> bundle2Ids) {
-            var bundles = new List<BundleRef>();
-            foreach (var bundle in allBundles) {
-                var children = manifest.GetAllDependencies(bundle);
-                var path = string.Format("{0}/{1}", outputPath, bundle);
+        // 获取所有的 BundleRef
+        private static List<BundleRef> GetBundleRefList(AssetBundleManifest manifest, IEnumerable<string> allBundleNames, IDictionary<string, int> bundle2Ids) {
+            List<BundleRef> bundleRefList = new List<BundleRef>();
+            // 遍历所有的 bundlename, 构造 BundleRef
+            foreach (string bundleName in allBundleNames) {
+                // 获取 bundle 的依赖 bundle （官方API）
+                string[] childrenBundleArray = manifest.GetAllDependencies(bundleName);
+
+                string path = string.Format("{0}/{1}", outputPath, bundleName);
                 if (File.Exists(path)) {
-                    using (var stream = File.OpenRead(path)) {
-                        bundles.Add(new BundleRef {
-                            id = bundle2Ids[bundle],
-                            name = bundle,
-                            children = Array.ConvertAll(children, input => bundle2Ids[input]),
-                            len = stream.Length,
-                            hash = manifest.GetAssetBundleHash(bundle).ToString(),
-                            crc = Utility.GetCRC32Hash(stream)
+                    using (FileStream fileStream = File.OpenRead(path)) {
+                        bundleRefList.Add(new BundleRef {
+                            id = bundle2Ids[bundleName],
+                            name = bundleName,
+                            childrenBundleIDArray = Array.ConvertAll(childrenBundleArray, input => bundle2Ids[input]),
+                            len = fileStream.Length,
+                            hash = manifest.GetAssetBundleHash(bundleName).ToString(),
+                            crc = Utility.GetCRC32Hash(fileStream)
                         });
                     }
                 } else {
@@ -299,16 +333,18 @@ namespace libx {
                 }
             }
 
-            return bundles;
+            return bundleRefList;
         }
 
-        private static Dictionary<string, int> GetBundle2Ids(string[] bundles) {
-            var bundle2Ids = new Dictionary<string, int>();
-            for (var index = 0; index < bundles.Length; index++) {
-                var bundle = bundles[index];
-                bundle2Ids[bundle] = index;
+        // 获取 bundle名 和 bundle 对应的 索引
+        private static Dictionary<string, int> GetBundle2Ids(string[] bundleArray) {
+            Dictionary<string, int> bundle2IdDict = new Dictionary<string, int>();
+            for (var index = 0; index < bundleArray.Length; index++) {
+                string bundle = bundleArray[index];
+                // e.g. [assets_xasset_extend_testimage, 0]
+                bundle2IdDict[bundle] = index;
             }
-            return bundle2Ids;
+            return bundle2IdDict;
         }
 
         private static string GetBuildTargetName(BuildTarget target) {
@@ -383,7 +419,7 @@ namespace libx {
             Directory.CreateDirectory(dir);
             var sourceDir = outputPath;
             var versions = Assets.LoadVersions(Path.Combine(sourceDir, Assets.Versions));
-            foreach (var file in versions.bundles) {
+            foreach (var file in versions.bundleRefList) {
                 if (file.location == 1) {
                     var destFile = Path.Combine(dir, file.name);
                     var destDir = Path.GetDirectoryName(destFile);
