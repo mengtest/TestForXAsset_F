@@ -492,6 +492,7 @@ namespace libx {
             }
         }
 
+        // SceneAssetAsyncRequest.Load()
         internal override void Load() {
             if (!string.IsNullOrEmpty(assetBundleName)) {
                 bundle = Assets.LoadBundleAsync(assetBundleName);

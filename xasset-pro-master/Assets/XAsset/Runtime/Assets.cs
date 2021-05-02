@@ -154,43 +154,46 @@ namespace libx {
                 string buildInVersionPath = string.Format("{0}buildInVersions.bundle", updatePath);
 
                 // LocalURL 本地要下载的地址
-                // e.g. file:///D:/Projects/UnityProjects/TestForXAsset5.1/xasset-pro-master/Bundles/Windows/versions.bundle
-                // file:///D:/Projects/UnityProjects/TestForXAsset5.1/xasset-pro-master/Assets/StreamingAssets/Bundles/versions.bundle
-                UnityWebRequest unityWebRequest = Download(GetLocalURL(Versions), buildInVersionPath);
+                string localURL = GetLocalURL(Versions);
 
-                // 下载  本地 versions.bundle 到 buildInVersions.bundle
-                unityWebRequest.SendWebRequest().completed += operation => {
-                    // 下载不了 本地, 进不了游戏
-                    if (!string.IsNullOrEmpty(unityWebRequest.error)) {
-                        if (completed != null)
-                            completed(unityWebRequest.error);
-                    } else {
-                        // 加载 P 目录下的 Versions
-                        buildinVersions = LoadVersions(buildInVersionPath);
+                // add by 黄鑫
+                buildinVersions = LoadVersions(buildInVersionPath);
+                onLoadVersions(buildinVersions);
 
-                        //// 本地版本暂时设置为 0.0.0
-                        //PlayerPrefs.SetString(KVersions, "0.0.0");
+                //UnityWebRequest unityWebRequest = Download(localURL, buildInVersionPath);
+                //// 下载  本地 versions.bundle 到 buildInVersions.bundle
+                //unityWebRequest.SendWebRequest().completed += operation => {
+                //    // 下载不了 本地, 进不了游戏
+                //    if (!string.IsNullOrEmpty(unityWebRequest.error)) {
+                //        if (completed != null)
+                //            completed(unityWebRequest.error);
+                //    } else {
+                //        // 加载 P 目录下的 Versions
+                //        buildinVersions = LoadVersions(buildInVersionPath);
 
-                        if (OverlayInstallation(buildinVersions.ver)) {
-                            onLoadVersions(buildinVersions);
-                            var filesInBuild = buildinVersions.GetFilesInBuild();
-                            foreach (var bundle in filesInBuild) {
-                                var path = string.Format("{0}{1}", updatePath, bundle.name);
-                                if (File.Exists(path)) {
-                                    File.Delete(path);
-                                }
-                            }
+                //        //// 本地版本暂时设置为 0.0.0
+                //        //PlayerPrefs.SetString(KVersions, "0.0.0");
 
-                            PlayerPrefs.SetString(KVersions, buildinVersions.ver);
-                        } else {
-                            // 原代码 这里永远都 是 FALSE
-                            var path = GetDownloadURL(Versions);
+                //        if (OverlayInstallation(buildinVersions.ver)) {
+                //            onLoadVersions(buildinVersions);
+                //            var filesInBuild = buildinVersions.GetFilesInBuild();
+                //            foreach (var bundle in filesInBuild) {
+                //                var path = string.Format("{0}{1}", updatePath, bundle.name);
+                //                if (File.Exists(path)) {
+                //                    File.Delete(path);
+                //                }
+                //            }
 
-                            onLoadVersions(File.Exists(path) ? LoadVersions(path) : buildinVersions);
-                        }
-                    }
-                    unityWebRequest.Dispose();
-                };
+                //            PlayerPrefs.SetString(KVersions, buildinVersions.ver);
+                //        } else {
+                //            // 原代码 这里永远都 是 FALSE
+                //            var path = GetDownloadURL(Versions);
+
+                //            onLoadVersions(File.Exists(path) ? LoadVersions(path) : buildinVersions);
+                //        }
+                //    }
+                //    unityWebRequest.Dispose();
+                //};
             }
         }
 
@@ -203,7 +206,7 @@ namespace libx {
             var v1 = new System.Version(version);
             var v2 = new System.Version(innerVersion);
             // return v1 > v2;
-            return true;
+            return false;
         }
 
         private static void ReloadVersions(Versions versions) {
