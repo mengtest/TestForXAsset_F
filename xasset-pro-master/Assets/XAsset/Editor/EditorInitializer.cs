@@ -121,8 +121,8 @@ namespace libx {
             // 获取平台名
             Assets.platform = BuildScript.GetPlatformName();
             // e.g. D:/Projects/UnityProjects/TestForXAsset5.1/xasset-pro-master/Bundles/Windows/
-            //Assets.basePath = Environment.CurrentDirectory.Replace("\\", "/") + "/" + BuildScript.outputPath + "/";
-            Assets.basePath = "";
+            Assets.basePath = Environment.CurrentDirectory.Replace("\\", "/") + "/" + BuildScript.outputPath + "/";
+            //Assets.basePath = "";
 
             // 设置加载资源的委托
             Assets.assetLoader = AssetDatabase.LoadAssetAtPath;

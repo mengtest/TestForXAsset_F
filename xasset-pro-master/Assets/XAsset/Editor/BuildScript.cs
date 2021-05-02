@@ -166,14 +166,14 @@ namespace libx {
         }
 
         private static void BuildVersions(AssetBundleManifest assetBundleManifest, BuildRules buidlRules) {
-            // 获取所有的 bundle(官方API)
-            string[] allAssetBundleArray = assetBundleManifest.GetAllAssetBundles();
+            // 获取所有的 bundle名(官方API)
+            string[] allAssetBundleNameArray = assetBundleManifest.GetAllAssetBundles();
 
             // 获取 bundle名 和 bundle 对应的 索引
-            Dictionary<string, int> bundle2IdDict = GetBundle2Ids(allAssetBundleArray);
+            Dictionary<string, int> bundle2IdDict = GetBundle2Ids(allAssetBundleNameArray);
 
             // 获取所有的 BundleRef
-            List<BundleRef> bundleRefList = GetBundleRefList(assetBundleManifest, allAssetBundleArray, bundle2IdDict);
+            List<BundleRef> bundleRefList = GetBundleRefList(assetBundleManifest, allAssetBundleNameArray, bundle2IdDict);
 
             // build 版本 加1
             string ver = buidlRules.AddVersion();
@@ -248,7 +248,7 @@ namespace libx {
                 var item = buidlRules.patchBuildList[i];
                 patchList.Add(new Patch {
                     name = item.name,
-                    files = getFiles(item.assets),
+                    files = getFiles(item.assetList),
                 });
             }
 
@@ -271,7 +271,9 @@ namespace libx {
             // 分包
             } else {
                 foreach (var patchName in buidlRules.patchesInBuild) {
-                    var patch = versions.patchList.Find((Patch item) => { return item.name.Equals(patchName); });
+                    var patch = versions.patchList.Find((Patch item) => { 
+                        return item.name.Equals(patchName); 
+                    });
                     if (patch != null) {
                         foreach (var file in patch.files) {
                             if (file >= 0 && file < bundleRefList.Count) {
@@ -314,17 +316,21 @@ namespace libx {
             // 遍历所有的 bundlename, 构造 BundleRef
             foreach (string bundleName in allBundleNames) {
                 // 获取 bundle 的依赖 bundle （官方API）
+                // e.g. [children_title, ...]
                 string[] childrenBundleArray = manifest.GetAllDependencies(bundleName);
-
+                // e.g. Bundles/Windows/_title
                 string path = string.Format("{0}/{1}", outputPath, bundleName);
+                // 读取 bundle
                 if (File.Exists(path)) {
                     using (FileStream fileStream = File.OpenRead(path)) {
                         bundleRefList.Add(new BundleRef {
-                            id = bundle2Ids[bundleName],
-                            name = bundleName,
-                            childrenBundleIDArray = Array.ConvertAll(childrenBundleArray, input => bundle2Ids[input]),
-                            len = fileStream.Length,
-                            hash = manifest.GetAssetBundleHash(bundleName).ToString(),
+                            id = bundle2Ids[bundleName],    // e.g. 0
+                            name = bundleName,  // e.g. _title
+                            childrenBundleIDArray = Array.ConvertAll(childrenBundleArray, input => bundle2Ids[input]),  // e.g. [1]
+                            len = fileStream.Length,    // e.g. 13638
+                            // 官方 API 获取 AssetFileHash
+                            hash = manifest.GetAssetBundleHash(bundleName).ToString(), 
+                            // 自定义 crc
                             crc = Utility.GetCRC32Hash(fileStream)
                         });
                     }

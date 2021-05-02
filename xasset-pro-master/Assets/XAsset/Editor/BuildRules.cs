@@ -33,9 +33,9 @@ using UnityEngine;
 namespace libx {
     public enum GroupBy {
         None,
-        Explicit,
-        Filename,
-        Directory,
+        Explicit,   // 自定义 组名
+        Filename,   // 文件名
+        Directory,  // 文件夹
     }
 
     // 要打包的 Asset 信息
@@ -44,7 +44,7 @@ namespace libx {
         // 要打包的文件名
         // e.g. Assets/XAsset/Extend/TestImage/Btn_Tab1_n 1.png
         public string assetName; 
-        
+        // asset 的组名
         public string groupName;
         // ab包的名字
         public string bundleName = string.Empty;
@@ -69,10 +69,11 @@ namespace libx {
         }
     }
 
+    // 分包
     [Serializable]
     public class PatchBuild {
-        public string name;
-        public List<string> assets = new List<string>();
+        public string name; // 分包名字
+        public List<string> assetList = new List<string>();    // 分包包含的 asset
     }
 
     public class BuildRules : ScriptableObject {
@@ -106,6 +107,8 @@ namespace libx {
         [Tooltip("构建的版本号")] public int build;
         public int major;
         public int minor;
+
+        // 主要用来在 编辑器下 查找 场景文件
         [Tooltip("场景文件夹")]
         public string[] scenesFolders = new string[] { "Assets/XAsset" };
 
@@ -140,6 +143,7 @@ namespace libx {
         [Tooltip("所有打包的资源")]
         public List<BundleBuild> bundleBuildList = new List<BundleBuild>();
 
+        // 当前场景名字
         public string currentScene;
 
         public void BeginSample() {
@@ -152,9 +156,9 @@ namespace libx {
 
         // BuildRules.OnLoadAsset
         public void OnLoadAsset(string assetPath) {
-            // 
+            // 开启了自动记录 并且是 开发模式
             if (autoRecord && Assets.development) {
-                GroupAsset(assetPath, GetGroup(assetPath));
+                GroupAsset(assetPath, GetGroupBy(assetPath));
             } else {
                 // 校验文件路径
                 if (validateAssetPath) {
@@ -171,11 +175,16 @@ namespace libx {
             }
         }
 
-        private GroupBy GetGroup(string assetPath) {
-            var groupBy = GroupBy.Filename;
-            var dir = Path.GetDirectoryName(assetPath).Replace("\\", "/");
+        // 获取 asset 的 分组类型
+        private GroupBy GetGroupBy(string assetPath) {
+            // 默认 GroupBy.Filename
+            GroupBy groupBy = GroupBy.Filename;
+            // 获取文件夹路径
+            string dir = Path.GetDirectoryName(assetPath).Replace("\\", "/");
+
+            // 如果asset 在 自动分组 文件夹里, 就 GroupBy.Directory
             if (autoGroupByDirectories.Length > 0) {
-                foreach (var groupWithDir in autoGroupByDirectories) {
+                foreach (string groupWithDir in autoGroupByDirectories) {
                     if (groupWithDir.Contains(dir)) {
                         groupBy = GroupBy.Directory;
                         break;
@@ -194,37 +203,61 @@ namespace libx {
 
         #region API
 
+        // 对 Asset 进行分组
         public AssetBuild GroupAsset(string path, GroupBy groupBy = GroupBy.Filename, string group = null) {
-            var value = assetBuildList.Find(assetBuild => assetBuild.assetName.Equals(path));
-            if (value == null) {
-                value = new AssetBuild();
-                value.assetName = path;
-                assetBuildList.Add(value);
+            // 在 assetBuildList 里查找 有没有记录
+            AssetBuild tempAssetBuild = this.assetBuildList.Find(assetBuild => assetBuild.assetName.Equals(path));
+
+            if (tempAssetBuild == null) {
+                tempAssetBuild = new AssetBuild();
+                // 
+                tempAssetBuild.assetName = path;
+                this.assetBuildList.Add(tempAssetBuild);
             }
+
+            // 自定义组名
             if (groupBy == GroupBy.Explicit) {
-                value.groupName = group;
+                tempAssetBuild.groupName = group;
             }
+
+
+            // e.g. Assets/XAsset/Demo/Scenes/Title.unity
             if (IsScene(path)) {
+                // e.g. Title
                 currentScene = Path.GetFileNameWithoutExtension(path);
             }
-            value.groupBy = groupBy;
+
+            // 分组类型
+            tempAssetBuild.groupBy = groupBy;
+
+            // 开启了自动记录 并且是 开发者模式
             if (autoRecord && Assets.development) {
+                // 分包
                 PatchAsset(path);
             }
-            return value;
+
+            return tempAssetBuild;
         }
 
+        // 分包, 按照当前场景
         public void PatchAsset(string path) {
-            var patchName = currentScene;
-            var value = patchBuildList.Find(patch => patch.name.Equals(patchName));
-            if (value == null) {
-                value = new PatchBuild();
-                value.name = patchName;
-                patchBuildList.Add(value);
+            // e.g. Title
+            string patchName = currentScene;
+
+            // 查找分包记录
+            PatchBuild tempPatch = patchBuildList.Find(patch => patch.name.Equals(patchName));
+
+            if (tempPatch == null) {
+                tempPatch = new PatchBuild();
+                tempPatch.name = patchName;
+                patchBuildList.Add(tempPatch);
             }
+
+            // 存在这个文件
             if (File.Exists(path)) {
-                if (!value.assets.Contains(path)) {
-                    value.assets.Add(path);
+                if (!tempPatch.assetList.Contains(path)) {
+                    // 添加到 分包 的 assetList 里
+                    tempPatch.assetList.Add(path);
                 }
             }
         }
@@ -421,10 +454,10 @@ namespace libx {
 
 
             foreach (PatchBuild patchBuild in patchBuildList) {
-                for (var i = 0; i < patchBuild.assets.Count; ++i) {
-                    var asset = patchBuild.assets[i];
+                for (var i = 0; i < patchBuild.assetList.Count; ++i) {
+                    var asset = patchBuild.assetList[i];
                     if (!File.Exists(asset)) {
-                        patchBuild.assets.RemoveAt(i);
+                        patchBuild.assetList.RemoveAt(i);
                         --i;
                     }
                 }

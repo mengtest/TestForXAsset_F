@@ -31,7 +31,7 @@ using UnityEngine.UI;
 
 namespace libx {
 
-    // 更新界面
+    // 更新界面(Title 场景)
     public class UpdateScreen : MonoBehaviour {
         // 清除按钮
         public Button buttonClear;

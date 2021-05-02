@@ -283,6 +283,7 @@ namespace libx {
             unityWebRequest.SendWebRequest().completed += operation => {
                 if (string.IsNullOrEmpty(unityWebRequest.error)) {
                     // 重新加载 currentVersions
+                    // outside = true, 表示要从外面下载
                     currentVersions = LoadVersions(Application.temporaryCachePath + "/" + VersionsFileName, true);
                     ReloadVersions(currentVersions);
 
@@ -310,6 +311,7 @@ namespace libx {
                 using (FileStream fileStream = File.OpenRead(filename)) {
                     BinaryReader reader = new BinaryReader(fileStream);
                     Versions version = new Versions();
+                    // version.outside
                     version.outside = outside;
                     version.Deserialize(reader);
                     return version;
@@ -325,20 +327,22 @@ namespace libx {
                 return DownloadAll(out downLoader);
             }
 
-            var bundles = new List<BundleRef>();
+            List<BundleRef> bundleList = new List<BundleRef>();
             foreach (var patch in patches) {
+
                 var saved = PlayerPrefs.GetString(patch, string.Empty);
+
                 if (!saved.Equals(currentVersions.ver)) {
                     var newFiles = GetNewFiles(patch);
                     foreach (var file in newFiles)
-                        if (!bundles.Exists(x => x.name.Equals(file.name)))
-                            bundles.Add(file);
+                        if (!bundleList.Exists(x => x.name.Equals(file.name)))
+                            bundleList.Add(file);
                 }
             }
 
-            if (bundles.Count > 0) {
+            if (bundleList.Count > 0) {
                 var downloader = new Downloader();
-                foreach (var item in bundles)
+                foreach (var item in bundleList)
                     downloader.AddDownload(GetDownloadURL(item.name), updatePath + item.name, item.crc, item.len);
                 Downloaders.Add(downloader);
                 downLoader = downloader;
@@ -485,24 +489,24 @@ namespace libx {
                 return true;
 
             // 读取 PlayerPrefs 暂时注释 Edit by 黄鑫 2021年5月2日
-            //// 直接读取 PlayerPrefs 中保存的内容，该值在 Download.Copy 方法中写入
-            //var comparison = StringComparison.OrdinalIgnoreCase;
-            //var ver = PlayerPrefs.GetString(path);
-            //if (ver.Equals(bundle.crc, comparison)) {
-            //    return false;
-            //}
-
-            //return true;
-
+            // 直接读取 PlayerPrefs 中保存的内容，该值在 Download.Copy 方法中写入
             var comparison = StringComparison.OrdinalIgnoreCase;
-            using (var stream = File.OpenRead(path)) {
-                if (stream.Length != bundle.len)
-                    return true;
-                if (verifyBy != VerifyBy.CRC)
-                    return false;
-                var crc = Utility.GetCRC32Hash(stream);
-                return !crc.Equals(bundle.crc, comparison);
+            var ver = PlayerPrefs.GetString(path);
+            if (ver.Equals(bundle.crc, comparison)) {
+                return false;
             }
+
+            return true;
+
+            //var comparison = StringComparison.OrdinalIgnoreCase;
+            //using (var stream = File.OpenRead(path)) {
+            //    if (stream.Length != bundle.len)
+            //        return true;
+            //    if (verifyBy != VerifyBy.CRC)
+            //        return false;
+            //    var crc = Utility.GetCRC32Hash(stream);
+            //    return !crc.Equals(bundle.crc, comparison);
+            //}
         }
 
         private static List<BundleRef> GetNewFiles(string patch) {

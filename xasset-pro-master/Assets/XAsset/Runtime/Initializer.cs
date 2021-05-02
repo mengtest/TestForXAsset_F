@@ -56,6 +56,7 @@ namespace libx {
                 } else {
                     Assets.LoadSceneAsync(R.GetScene(launchScene));
                 }
+
             });
         }
 

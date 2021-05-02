@@ -95,7 +95,7 @@ namespace libx {
         public string hash; // 文件 hash 通过 AssetBundleManifest.GetAssetBundleHash() 计算获得（官方API)
         public string crc;  // crc Utility.GetCRC32Hash() 计算所得
         public int id { get; set; } // bundle 索引
-        public byte location { get; set; }
+        public byte location { get; set; }  // 0 表示 bundle 在 分包, 1 表示 bundle 在包里
 
         public bool Equals(BundleRef other) {
             return name == other.name &&
@@ -299,6 +299,7 @@ namespace libx {
                 // 设置 BundleRef 的索引
                 bundleRef.id = bundleRefList.Count;
 
+                // 根据 Versions.outside 来设置 BundlRef.location
                 if (outside) {
                     bundleRef.location = 1;
                 }
