@@ -123,7 +123,7 @@ GameObject:
   - component: {fileID: 688479980}
   - component: {fileID: 688479979}
   m_Layer: 0
-  m_Name: Initilizer
+  m_Name: Initializer
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -151,8 +151,9 @@ MonoBehaviour:
   searchPaths:
   - Assets/XAsset/Demo/Scenes
   - Assets/XAsset/Demo/UI/Prefabs
-  patches4Init: []
-  updateAll: 1
+  patches4Init:
+  - Title
+  updateAll: 0
 --- !u!4 &688479980
 Transform:
   m_ObjectHideFlags: 0

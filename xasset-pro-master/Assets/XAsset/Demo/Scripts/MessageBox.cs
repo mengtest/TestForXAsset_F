@@ -43,8 +43,9 @@ namespace libx {
         private Text _title;
         private bool _visible = true;
 
+
         private MessageBox(string title, string content, Action<bool> completed, string ok, string no) {
-            var request = Assets.LoadAsset(R.GetPrefab("MessageBox"), typeof(GameObject));
+            AssetRequest request = Assets.LoadAsset(R.GetPrefab("MessageBox"), typeof(GameObject));
             gameObject = Object.Instantiate(request.asset) as GameObject;
             Assert.IsNotNull(gameObject, "gameObject != null");
             gameObject.name = title;

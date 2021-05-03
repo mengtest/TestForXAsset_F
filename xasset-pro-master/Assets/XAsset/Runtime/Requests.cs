@@ -67,6 +67,7 @@ namespace libx {
             loadState = LoadState.Init;
         }
 
+        // 判断 loadState 的状态 来确定 是否完成
         public bool isDone {
             get {
                 return loadState == LoadState.Unload || loadState == LoadState.Loaded;
@@ -118,10 +119,12 @@ namespace libx {
         internal virtual bool Update() {
             if (!isDone)
                 return true;
+            // 完成了就
             Complete();
             return false;
         }
 
+        // 加载完成
         private void Complete() {
             if (completed != null) {
                 try {
@@ -151,6 +154,8 @@ namespace libx {
 
         #endregion
 
+
+        // AssetRequest.LoadImmediate()
         public virtual void LoadImmediate() {
 
         }
@@ -169,7 +174,7 @@ namespace libx {
         // BundleAssetRequest.Load()
         internal override void Load() {
             bundle = Assets.LoadBundle(assetBundleName);
-            var bundles = Assets.GetChildren(assetBundleName);
+            var bundles = Assets.GetChildrenBundleNameArray(assetBundleName);
             foreach (var item in bundles) {
                 children.Add(Assets.LoadBundle(item));
             }
@@ -291,7 +296,7 @@ namespace libx {
 
         internal override void Load() {
             bundle = Assets.LoadBundleAsync(assetBundleName);
-            var bundles = Assets.GetChildren(assetBundleName);
+            var bundles = Assets.GetChildrenBundleNameArray(assetBundleName);
             foreach (var item in bundles) {
                 children.Add(Assets.LoadBundleAsync(item));
             }
@@ -323,6 +328,7 @@ namespace libx {
         public readonly LoadSceneMode loadSceneMode;
         protected readonly string sceneName;
 
+        // e.g. _title
         public string assetBundleName { get; set; }
 
         public List<SceneAssetRequest> additives { get; set; }
@@ -349,7 +355,7 @@ namespace libx {
             if (!string.IsNullOrEmpty(assetBundleName)) {
                 bundleRequest = Assets.LoadBundle(assetBundleName);
                 if (bundleRequest != null) {
-                    var bundles = Assets.GetChildren(assetBundleName);
+                    var bundles = Assets.GetChildrenBundleNameArray(assetBundleName);
                     foreach (var item in bundles) {
                         childrenBundleRequest.Add(Assets.LoadBundle(item));
                     }
@@ -409,7 +415,7 @@ namespace libx {
     // 场景请求（异步）
     public class SceneAssetAsyncRequest : SceneAssetRequest {
         // 包含的 SceneManager.LoadSceneAsync 产生的 AsyncOperation
-        private AsyncOperation _asyncOperation;
+        private AsyncOperation _asyncOperationOfLoadSceneAsync;
 
         public SceneAssetAsyncRequest(string path, bool addictive)
             : base(path, addictive) {
@@ -425,8 +431,8 @@ namespace libx {
                     return 0;
                 }
 
-                if (_asyncOperation != null) {
-                    return _asyncOperation.progress * 0.7f + 0.3f;
+                if (_asyncOperationOfLoadSceneAsync != null) {
+                    return _asyncOperationOfLoadSceneAsync.progress * 0.7f + 0.3f;
                 }
 
                 if (bundleRequest == null) {
@@ -466,13 +472,18 @@ namespace libx {
                 return true;
             }
 
-            if (_asyncOperation == null) {
+            // SceneManager.LoadSceneAsync 时会产生这个,
+            // null 说明还没有开始 官方API加载场景
+            if (_asyncOperationOfLoadSceneAsync == null) {
                 if (bundleRequest == null) {
                     error = "request == null";
+
+                    // SceneAssetAsyncRequest.loadState = LoadState.Loaded
                     loadState = LoadState.Loaded;
                     return false;
                 }
 
+                // 等待 场景所在的 BundleRequest 加载完成
                 if (!bundleRequest.isDone) {
                     return true;
                 }
@@ -481,52 +492,78 @@ namespace libx {
                     return false;
                 }
 
+                // 等待 依赖 bundle 加载完成
                 for (int i = 0; i < childrenBundleRequest.Count; i++) {
-                    var item = childrenBundleRequest[i];
-                    if (!item.isDone) {
+                    BundleRequest bundleRequest = childrenBundleRequest[i];
+
+                    if (!bundleRequest.isDone) {
                         return true;
                     }
-                    if (OnError(item)) {
+
+                    if (OnError(bundleRequest)) {
                         return false;
                     }
                 }
 
+                // 以上都加载完后， 最后加载 场景
                 LoadSceneAsync();
 
                 return true;
             }
 
-            if (_asyncOperation.isDone) {
+
+            // isDone 说明 SceneManager.LoadSceneAsync 加载完成
+            if (_asyncOperationOfLoadSceneAsync.isDone) {
+
+                // SceneAssetAsyncRequest.loadState = LoadState.Loaded
                 loadState = LoadState.Loaded;
                 return false;
             }
+
+
             return true;
         }
 
+        // SceneAssetAsyncRequest.LoadSceneAsync()
+        // 不使用 ab 包 加载场景
         private void LoadSceneAsync() {
             try {
-                _asyncOperation = SceneManager.LoadSceneAsync(sceneName, loadSceneMode);
+                _asyncOperationOfLoadSceneAsync = SceneManager.LoadSceneAsync(sceneName, loadSceneMode);
+
+                // SceneAssetAsyncRequest.loadState.loadState = LoadState.Loading
                 loadState = LoadState.Loading;
+
+            // 出错
             } catch (Exception e) {
                 Debug.LogException(e);
                 error = e.ToString();
+
+                // SceneAssetAsyncRequest.loadState.loadState = LoadState.Loading
                 loadState = LoadState.Loaded;
             }
         }
 
         // SceneAssetAsyncRequest.Load()
         internal override void Load() {
+            // 有 ab 包名
             if (!string.IsNullOrEmpty(assetBundleName)) {
+                // 加载场景所在的 Bundle
                 bundleRequest = Assets.LoadBundleAsync(assetBundleName);
-                string[] childBundleNameArray = Assets.GetChildren(assetBundleName);
+                // 获取 场景所在的 bundle 依赖的 bundle 名
+                string[] childBundleNameArray = Assets.GetChildrenBundleNameArray(assetBundleName);
 
                 // 加载 每个 子 bundle
-                foreach (var item in childBundleNameArray) {
-                    childrenBundleRequest.Add(Assets.LoadBundleAsync(item));
+                foreach (string bundleName in childBundleNameArray) {
+                    // 加载 每个 子bundle
+                    childrenBundleRequest.Add(
+                        Assets.LoadBundleAsync(bundleName)
+                    );
                 }
 
-                // 加载 bundle 中
+                // SceneAssetAsyncRequest.loadState = LoadState.Loading
                 loadState = LoadState.Loading;
+
+            // 没有 ab 包 直接 加载场景
             } else {
                 LoadSceneAsync();
             }
@@ -534,7 +571,7 @@ namespace libx {
 
         internal override void Unload() {
             base.Unload();
-            _asyncOperation = null;
+            _asyncOperationOfLoadSceneAsync = null;
         }
     }
 
@@ -630,6 +667,7 @@ namespace libx {
 
     // BundleRequest 请求（同步）
     public class BundleRequest : AssetRequest {
+        // 包含的 AssetBundle
         public AssetBundle assetBundle {
             get { return asset as AssetBundle; }
             internal set { asset = value; }
@@ -678,17 +716,24 @@ namespace libx {
             }
         }
 
+        // BundleAsyncRequest.Update()
         internal override bool Update() {
             if (!base.Update()) {
                 return false;
             }
 
+            // 正在加载
             if (loadState == LoadState.Loading) {
+                // AssetBundleCreateRequest.isDone
                 if (_assetBundleCreateRequest.isDone) {
+                    // 获取 AssetBundle
                     assetBundle = _assetBundleCreateRequest.assetBundle;
+
                     if (assetBundle == null) {
                         error = string.Format("unable to load assetBundle:{0}", url);
                     }
+
+                    // AssetBundle 加载完成
                     loadState = LoadState.Loaded;
                     return false;
                 }

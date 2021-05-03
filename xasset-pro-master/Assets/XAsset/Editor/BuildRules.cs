@@ -38,7 +38,7 @@ namespace libx {
         Directory,  // 文件夹
     }
 
-    // 要打包的 Asset 信息
+    // 打包时的 Asset 信息
     [Serializable]
     public class AssetBuild {
         // 要打包的文件名
@@ -54,7 +54,7 @@ namespace libx {
         public GroupBy groupBy = GroupBy.Filename;
     }
 
-    // 要打包的 bundle 信息
+    // 打包时的 Bundle 信息
     [Serializable]
     public class BundleBuild {
         public string assetBundleName;  // bundle 名
@@ -69,11 +69,11 @@ namespace libx {
         }
     }
 
-    // 分包
+    // 打包时的 分包信息
     [Serializable]
     public class PatchBuild {
         public string name; // 分包名字
-        public List<string> assetList = new List<string>();    // 分包包含的 asset
+        public List<string> assetNameList = new List<string>();    // 分包包含的 asset 名字
     }
 
     public class BuildRules : ScriptableObject {
@@ -124,7 +124,9 @@ namespace libx {
 
         [Header("首包内容配置")]
         [Tooltip("是否整包")] public bool allAssetsToBuild;
-        [Tooltip("首包包含的分包")] public string[] patchesInBuild = new string[0];
+
+        [Tooltip("首包包含的分包")] public string[] patchNameInBuild = new string[0];
+
         [Tooltip("BuildPlayer的时候被打包的场景")] public SceneAsset[] scenesInBuild = new SceneAsset[0];
 
         [Header("AB打包配置")]
@@ -134,12 +136,16 @@ namespace libx {
 
         [Header("缓存数据")]
 
+
+        // 这里有记录的asset 才会打包
         [Tooltip("所有要打包的资源")]
         public List<AssetBuild> assetBuildList = new List<AssetBuild>();
 
+        // 只在这里有记录的 asset 不会被打包, 这里只是用来分包的
         [Tooltip("所有分包")]
         public List<PatchBuild> patchBuildList = new List<PatchBuild>();
 
+        // 生成 ab 包后, 这里才会有记录
         [Tooltip("所有打包的资源")]
         public List<BundleBuild> bundleBuildList = new List<BundleBuild>();
 
@@ -255,9 +261,10 @@ namespace libx {
 
             // 存在这个文件
             if (File.Exists(path)) {
-                if (!tempPatch.assetList.Contains(path)) {
+                // 分包不包含这个文件
+                if (!tempPatch.assetNameList.Contains(path)) {
                     // 添加到 分包 的 assetList 里
-                    tempPatch.assetList.Add(path);
+                    tempPatch.assetNameList.Add(path);
                 }
             }
         }
@@ -453,11 +460,12 @@ namespace libx {
             }
 
 
+            // 移除 PatchBuild 中不存在的 asset
             foreach (PatchBuild patchBuild in patchBuildList) {
-                for (var i = 0; i < patchBuild.assetList.Count; ++i) {
-                    var asset = patchBuild.assetList[i];
+                for (var i = 0; i < patchBuild.assetNameList.Count; ++i) {
+                    string asset = patchBuild.assetNameList[i];
                     if (!File.Exists(asset)) {
-                        patchBuild.assetList.RemoveAt(i);
+                        patchBuild.assetNameList.RemoveAt(i);
                         --i;
                     }
                 }

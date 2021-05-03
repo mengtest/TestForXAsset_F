@@ -35,30 +35,33 @@ namespace libx {
         CRC // 文件 CRC
     }
 
+    // 运行时的 分包信息
     [Serializable]
     public class Patch {
-        public string name = string.Empty;
-        public List<int> files = new List<int>();
+        public string name = string.Empty;  // 分包名字
+        public List<int> bundleIDList = new List<int>();    // 包含的 bundleID
 
+        // 序列化 Patch
         public void Serialize(BinaryWriter writer) {
             writer.Write(name);
-            writer.Write(files.Count);
-            foreach (var file in files) {
-                writer.Write(file);
+            writer.Write(bundleIDList.Count);
+            foreach (int bundleID in bundleIDList) {
+                writer.Write(bundleID);
             }
         }
 
+        // 反序列化 Patch
         public void Deserialize(BinaryReader reader) {
             name = reader.ReadString();
-            var count = reader.ReadInt32();
-            for (var i = 0; i < count; i++) {
+            int count = reader.ReadInt32();
+            for (int i = 0; i < count; i++) {
                 var file = reader.ReadInt32();
-                files.Add(file);
+                bundleIDList.Add(file);
             }
         }
 
         public override string ToString() {
-            return string.Format("name={0}, files={1}", name, string.Join(",", files.ConvertAll(input => input.ToString()).ToArray()));
+            return string.Format("name={0}, files={1}", name, string.Join(",", bundleIDList.ConvertAll(input => input.ToString()).ToArray()));
         }
     }
 
@@ -97,6 +100,8 @@ namespace libx {
         public int id { get; set; } // bundle 索引
         public byte location { get; set; }  // 0 表示 bundle 在 分包, 1 表示 bundle 在包里
 
+        // BundleRef.Equals()
+        // 判断两个 BundleRef 是否相等
         public bool Equals(BundleRef other) {
             return name == other.name &&
                    len == other.len &&
@@ -146,7 +151,9 @@ namespace libx {
         }
     }
 
+    // 版本信息
     public class Versions {
+        // 版本信息
         public string ver = new Version(0, 0, 0).ToString();
         public string[] activeVariants = new string[0];
         // 包含的目录
@@ -158,9 +165,11 @@ namespace libx {
         public List<AssetRef> assetRefList = new List<AssetRef>();
         // 包含的 BundleRef List
         public List<BundleRef> bundleRefList = new List<BundleRef>();
+
         // 包含的 Patch List
         public List<Patch> patchList = new List<Patch>();
 
+        // bundle名对应的 BundleRef
         // e.g. [assets_xasset_extend_testimage, BundlRef]
         private readonly Dictionary<string, BundleRef> _bundleName2BundleRefDict = new Dictionary<string, BundleRef>();
         private readonly Dictionary<string, Patch> _patchName2PatchDict = new Dictionary<string, Patch>();
@@ -179,10 +188,12 @@ namespace libx {
             return sb.ToString();
         }
 
-        public bool Contains(BundleRef bundle) {
-            BundleRef file;
-            if (_bundleName2BundleRefDict.TryGetValue(bundle.name, out file)) {
-                if (file.Equals(bundle)) {
+        // 是否包含 对应的 BundleRef
+        public bool Contains(BundleRef bundleRef) {
+            BundleRef tempBundleRef;
+            if (_bundleName2BundleRefDict.TryGetValue(bundleRef.name, out tempBundleRef)) {
+                // 两个 BundleRef 相等
+                if (tempBundleRef.Equals(bundleRef)) {
                     return true;
                 }
             }
@@ -200,8 +211,8 @@ namespace libx {
             var list = new List<BundleRef>();
             Patch patch;
             if (_patchName2PatchDict.TryGetValue(patchName, out patch)) {
-                if (patch.files.Count > 0) {
-                    foreach (var file in patch.files) {
+                if (patch.bundleIDList.Count > 0) {
+                    foreach (var file in patch.bundleIDList) {
                         var item = bundleRefList[file];
                         list.Add(item);
                     }
@@ -252,7 +263,7 @@ namespace libx {
             // 写入 Patch 数量
             writer.Write(patchList.Count);
             // Patch.Serialize()
-            foreach (var patch in patchList)
+            foreach (Patch patch in patchList)
                 patch.Serialize(writer);
         }
 
@@ -319,6 +330,7 @@ namespace libx {
             }
         }
 
+        // 保存 Versions.bundle
         public void Save(string path) {
             if (File.Exists(path)) {
                 File.Delete(path);

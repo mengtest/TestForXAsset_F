@@ -37,6 +37,8 @@ namespace libx {
         // 编辑器运行时初始化
         [RuntimeInitializeOnLoadMethod]
         private static void OnInitialize() {
+            return;
+
             Debug.Log("EditorInitializer.OnInitialize()");
 
             List<string> sceneAssetList = new List<string>();
@@ -67,7 +69,7 @@ namespace libx {
                     continue;
                 }
 
-                // 获取文件夹 Assets/XAsset/Extend/TestPrefab1
+                // 获取文件夹 e.g. Assets/XAsset/Extend/TestPrefab1
                 string dir = Path.GetDirectoryName(asset.assetName);
 
                 if (!string.IsNullOrEmpty(dir)) {
@@ -113,6 +115,7 @@ namespace libx {
                 patchList.Add(patch);
             }
 
+            // 编辑器下的 Versions
             var developVersions = new Versions();
             developVersions.dirArray = searchPathList.ToArray();
             developVersions.assetRefList = assetRefList;

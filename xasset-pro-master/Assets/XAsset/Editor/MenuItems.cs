@@ -167,7 +167,7 @@ namespace libx {
             var selection = Selection.GetFiltered<Object>(SelectionMode.DeepAssets);
             var rules = BuildScript.GetBuildRules();
             foreach (var o in selection) {
-                var path = AssetDatabase.GetAssetPath(o);
+                string path = AssetDatabase.GetAssetPath(o);
                 if (string.IsNullOrEmpty(path) || Directory.Exists(path)) continue;
                 rules.PatchAsset(path);
             }

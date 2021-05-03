@@ -221,34 +221,37 @@ namespace libx {
                 assetRefList.Add(assetRef);
             }
 
-            Func<List<string>, List<int>> getFiles = delegate (List<string> list) {
+            Func<List<string>, List<int>> getFilesCallback = delegate (List<string> assetNameList) {
                 List<int> ret = new List<int>();
 
-                foreach (string file in list) {
-                    BundleRef bundle;
-                    asset2BundleRefDict.TryGetValue(file, out bundle);
+                foreach (string assetName in assetNameList) {
+                    // 根据 asset 名 获取 BundleRef
+                    BundleRef bundleRef;
+                    asset2BundleRefDict.TryGetValue(assetName, out bundleRef);
 
-                    if (bundle != null) {
-                        if (!ret.Contains(bundle.id)) {
-                            ret.Add(bundle.id);
+                    if (bundleRef != null) {
+                        if (!ret.Contains(bundleRef.id)) {
+                            ret.Add(bundleRef.id);
                         }
-                        foreach (var child in bundle.childrenBundleIDArray) {
+                        foreach (var child in bundleRef.childrenBundleIDArray) {
                             if (!ret.Contains(child)) {
                                 ret.Add(child);
                             }
                         }
                     } else {
-                        Debug.LogWarning("bundle == nil, file:" + file);
+                        Debug.LogWarning("bundle == nil, file:" + assetName);
                     }
                 }
                 return ret;
             };
 
             for (var i = 0; i < buidlRules.patchBuildList.Count; i++) {
-                var item = buidlRules.patchBuildList[i];
+                // 获取 PatchBuild
+                PatchBuild patchBuild = buidlRules.patchBuildList[i];
+                // 构造 Patch
                 patchList.Add(new Patch {
-                    name = item.name,
-                    files = getFiles(item.assetList),
+                    name = patchBuild.name,
+                    bundleIDList = getFilesCallback(patchBuild.assetNameList),
                 });
             }
 
@@ -267,17 +270,20 @@ namespace libx {
 
             // 整包
             if (buidlRules.allAssetsToBuild) {
+                // 所有 BundleRef 的 location 都为1 bundle 在包里
                 bundleRefList.ForEach(obj => obj.location = 1);
             // 分包
             } else {
-                foreach (var patchName in buidlRules.patchesInBuild) {
-                    var patch = versions.patchList.Find((Patch item) => { 
+                // 遍历所有的 PatchName e.g. Title
+                foreach (string patchName in buidlRules.patchNameInBuild) {
+                    Patch patch = versions.patchList.Find((Patch item) => { 
                         return item.name.Equals(patchName); 
                     });
+
                     if (patch != null) {
-                        foreach (var file in patch.files) {
-                            if (file >= 0 && file < bundleRefList.Count) {
-                                bundleRefList[file].location = 1;
+                        foreach (int bundleID in patch.bundleIDList) {
+                            if (bundleID >= 0 && bundleID < bundleRefList.Count) {
+                                bundleRefList[bundleID].location = 1;
                             }
                         }
                     }
@@ -438,9 +444,10 @@ namespace libx {
             File.Copy(Path.Combine(sourceDir, Assets.VersionsFileName), Path.Combine(dir, Assets.VersionsFileName));
         }
 
+        // 查看版本文件
         public static void ViewVersions(string path) {
-            var versions = Assets.LoadVersions(path);
-            var txt = "versions.txt";
+            Versions versions = Assets.LoadVersions(path);
+            string txt = "versions.txt";
             File.WriteAllText(txt, versions.ToString());
             EditorUtility.OpenWithDefaultApp(txt);
         }

@@ -160,6 +160,7 @@ namespace libx {
             StartCoroutine(EnterLevel());
         }
 
+        // 进入 Level 场景（游戏场景）
         private IEnumerator EnterLevel() {
             yield return null;
             OnProgress(0);

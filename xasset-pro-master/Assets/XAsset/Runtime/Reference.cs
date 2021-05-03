@@ -29,6 +29,13 @@ using UnityEngine;
 
 namespace libx {
     public class Reference {
+        //
+        //
+        // SceneAssetRequest & SceneAssetAsyncRequest
+        //  Assets/XAsset/Demo/Scenes/Title.unity
+        // BundleRequest & BundleAsyncRequest
+        //  children_title
+        // 
         public string name { get; set; }
 
         private List<Object> _requires = null;

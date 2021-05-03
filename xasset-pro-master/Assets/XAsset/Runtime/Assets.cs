@@ -94,12 +94,12 @@ namespace libx {
 
         public static string[] GetAllAssetPaths() {
             var assets = new List<string>();
-            assets.AddRange(AssetToBundles.Keys);
+            assets.AddRange(AssetToBundleDict.Keys);
             return assets.ToArray();
         }
 
         // Assets.Initializer 初始化
-        public static void Initialize(Action<string> completed = null) {
+        public static void Initialize(Action<string> completedCallback = null) {
             var instance = FindObjectOfType<Assets>();
             if (instance == null) {
                 // 添加 Assets
@@ -139,8 +139,8 @@ namespace libx {
                 _localProtocol = "file:///";
             }
 
-            // 加载完 Versions 的回调
-            Action<Versions> onLoadVersions = new Action<Versions>(versions => {
+            // 加载完 Versions 的回调, 需要在调用之前 申明
+            Action<Versions> onLoadVersionsCallback = new Action<Versions>(versions => {
                 // 只有这里会赋值 currentVersion
                 currentVersions = versions;
                 ReloadVersions(currentVersions);
@@ -152,21 +152,21 @@ namespace libx {
                 LogFormat("DownloadURL:{0}", downloadURL);
                 LogFormat("UpdateUnusedAssetsImmediate:{0}", updateUnusedAssetsImmediate);
                 LogFormat("Version:{0}", currentVersions.ver);
-                if (completed != null)
-                    completed(null);
+                if (completedCallback != null)
+                    completedCallback(null);
             });
 
             // 开发模式
             if (development) {
                 if (versionsLoader != null)
-                    onLoadVersions(versionsLoader());
+                    onLoadVersionsCallback(versionsLoader());
             // 非开发模式
             } else {
-                // 获取 P 目录下的 versions.bundle
+                // 获取 P 目录下的 versions.bundle 路径（下载到这里）
                 // e.g. C:/Users/void87/AppData/LocalLow/mmdnb/xasset-pro/Bundles/buildInVersions.bundle
                 string updatePathVersionPath = string.Format("{0}buildInVersions.bundle", updatePath);
 
-                // 获取基于 basePath 的 versions.bundle(暂时没有用到)
+                // 获取基于 basePath 的 versions.bundle, （从这里下载）
                 // e.g. file:///D:/Projects/UnityProjects/TestForXAsset5.1/xasset-pro-master/Assets/StreamingAssets/Bundles/versions.bundle
                 string basePathVersionURL = GetLocalURL(VersionsFileName);
 
@@ -177,14 +177,16 @@ namespace libx {
 
                 // 将 basePath 的 version 下载到 updatePath
                 UnityWebRequest unityWebRequest = Download(basePathVersionURL, updatePathVersionPath);
+
                 // 下载  本地 versions.bundle 到 buildInVersions.bundle
                 unityWebRequest.SendWebRequest().completed += operation => {
                     // 下载不了 本地, 进不了游戏
                     if (!string.IsNullOrEmpty(unityWebRequest.error)) {
-                        if (completed != null)
-                            completed(unityWebRequest.error);
+                        if (completedCallback != null)
+                            completedCallback(unityWebRequest.error);
                     } else {
                         // 加载 P 目录下的 Versions
+                        // outside = false, 表示资源不用从外面下载
                         updatePathVersions = LoadVersions(updatePathVersionPath);
 
                         //// 本地版本暂时设置为 0.0.0
@@ -193,7 +195,7 @@ namespace libx {
                         // 覆盖安装
                         if (OverlayInstallation(updatePathVersions.ver)) {
                             // 加载完 Versions 的回调
-                            onLoadVersions(updatePathVersions);
+                            onLoadVersionsCallback(updatePathVersions);
 
                             List<BundleRef> filesInBuild = updatePathVersions.GetFilesInBuild();
                             foreach (BundleRef bundleRef in filesInBuild) {
@@ -206,10 +208,12 @@ namespace libx {
                             // 设置本地的 版本号
                             PlayerPrefs.SetString(KVersions, updatePathVersions.ver);
                         } else {
-                            // 原代码 这里永远都 是 FALSE
-                            string path = GetDownloadURL(VersionsFileName);
+                            //// 原代码 这里永远都 是 FALSE
+                            //string path = GetDownloadURL(VersionsFileName);
 
-                            onLoadVersions(File.Exists(path) ? LoadVersions(path) : updatePathVersions);
+                            //onLoadVersions(File.Exists(path) ? LoadVersions(path) : updatePathVersions);
+
+                            onLoadVersionsCallback(updatePathVersions);
                         }
                     }
                     unityWebRequest.Dispose();
@@ -225,15 +229,15 @@ namespace libx {
             }
             var v1 = new System.Version(version);
             var v2 = new System.Version(innerVersion);
-            // return v1 > v2;
-            return true;
+            return v1 > v2;
+            // return true;
         }
 
         // 重新加载 Versions, 赋值 ActiveVariants, AssetToBundles, BundleToChildren
         private static void ReloadVersions(Versions versions) {
-            ActiveVariants.Clear();
-            AssetToBundles.Clear();
-            BundleToChildren.Clear();
+            ActiveVariantList.Clear();
+            AssetToBundleDict.Clear();
+            BundleToChildrenBundleDict.Clear();
 
             // e.g.
             // [0, name=Title.unity, bundle=2, dir=0]
@@ -251,7 +255,7 @@ namespace libx {
 
             // 将 BundleRef 转换为 BundleToChildren
             foreach (BundleRef bundlRef in bundleRefList) {
-                BundleToChildren[bundlRef.name] = Array.ConvertAll(bundlRef.childrenBundleIDArray, id => bundleRefList[id].name);
+                BundleToChildrenBundleDict[bundlRef.name] = Array.ConvertAll(bundlRef.childrenBundleIDArray, id => bundleRefList[id].name);
             }
 
             // 将 AssetRef 转换为 AssetToBundles
@@ -262,12 +266,12 @@ namespace libx {
 
                 if (assetRef.bundleID >= 0 && assetRef.bundleID < bundleRefList.Count)
                     // 
-                    AssetToBundles[path] = bundleRefList[assetRef.bundleID].name;
+                    AssetToBundleDict[path] = bundleRefList[assetRef.bundleID].name;
                 else
-                    AssetToBundles[path] = string.Empty;
+                    AssetToBundleDict[path] = string.Empty;
             }
 
-            ActiveVariants.AddRange(activeVariants);
+            ActiveVariantList.AddRange(activeVariants);
         }
 
         // 下载 Versions
@@ -300,7 +304,7 @@ namespace libx {
             };
         }
 
-        // 加载 P 目录 || temPath 下的 versions.bundle
+        // 加载versions.bundle 反序列化为 Versions
         // 
         public static Versions LoadVersions(string filename, bool outside = false) {
             // 不存在 直接创建一个初始的 Versions
@@ -322,18 +326,18 @@ namespace libx {
             }
         }
 
-        public static bool DownloadAll(string[] patches, out Downloader downLoader) {
+        public static bool DownloadAll(string[] patchNameArray, out Downloader downLoader) {
             if (updateAll) {
                 return DownloadAll(out downLoader);
             }
 
             List<BundleRef> bundleList = new List<BundleRef>();
-            foreach (var patch in patches) {
+            foreach (string patchName in patchNameArray) {
 
-                var saved = PlayerPrefs.GetString(patch, string.Empty);
+                var saved = PlayerPrefs.GetString(patchName, string.Empty);
 
                 if (!saved.Equals(currentVersions.ver)) {
-                    var newFiles = GetNewFiles(patch);
+                    var newFiles = GetNewFiles(patchName);
                     foreach (var file in newFiles)
                         if (!bundleList.Exists(x => x.name.Equals(file.name)))
                             bundleList.Add(file);
@@ -347,7 +351,7 @@ namespace libx {
                 Downloaders.Add(downloader);
                 downLoader = downloader;
                 downLoader.onFinished += () => {
-                    foreach (var item in patches) {
+                    foreach (var item in patchNameArray) {
                         PlayerPrefs.SetString(item, currentVersions.ver);
                     }
                 };
@@ -398,7 +402,7 @@ namespace libx {
         }
 
         // 加载场景 (异步）, 传入的只是场景的名字
-        // e.g. Title.unity
+        // sceneName e.g. Title.unity
         public static SceneAssetRequest LoadSceneAsync(string sceneName, bool additive = false) {
             Assert.IsNotNull(sceneName, "path != null");
             string assetBundleName;
@@ -406,32 +410,38 @@ namespace libx {
             // 获取完整的 场景名
             sceneName = GetSearchPath(sceneName, out assetBundleName);
 
-            SceneAssetAsyncRequest sceneAssetRequest = new SceneAssetAsyncRequest(sceneName, additive) {
+            SceneAssetAsyncRequest sceneAssetAsyncRequest = new SceneAssetAsyncRequest(sceneName, additive) {
                 assetBundleName = assetBundleName 
             };
 
-            LogFormat("LoadSceneAsync:{0}", sceneName);
+            LogFormat("<color=red>LoadSceneAsync</color>:{0}", sceneName);
 
-            sceneAssetRequest.Load();
-            sceneAssetRequest.Retain();
-            sceneAssetRequest.name = sceneName;
+            // 
+            sceneAssetAsyncRequest.Load();
 
-            LoadingSceneAssetRequestSceneList.Add(sceneAssetRequest);
+            // 被引用加1
+            sceneAssetAsyncRequest.Retain();
+
+            // e.g. Assets/XAsset/Demo/Scenes/Title.unity
+            sceneAssetAsyncRequest.name = sceneName;
+
+            // 添加到 正在 加载的 场景请求 列表
+            LoadingSceneAssetRequestSceneList.Add(sceneAssetAsyncRequest);
 
             if (!additive) {
-                if (_runningScene != null) {
-                    _runningScene.Release();
-                    _runningScene = null;
+                if (_runningSceneAssetRequest != null) {
+                    _runningSceneAssetRequest.Release();
+                    _runningSceneAssetRequest = null;
                 }
 
-                _runningScene = sceneAssetRequest;
+                _runningSceneAssetRequest = sceneAssetAsyncRequest;
             } else {
-                if (_runningScene != null) {
-                    _runningScene.additives.Add(sceneAssetRequest);
+                if (_runningSceneAssetRequest != null) {
+                    _runningSceneAssetRequest.additives.Add(sceneAssetAsyncRequest);
                 }
             }
 
-            return sceneAssetRequest;
+            return sceneAssetAsyncRequest;
         }
 
         public static void UnloadScene(SceneAssetRequest scene) {
@@ -551,9 +561,12 @@ namespace libx {
 
         private static readonly List<Downloader> Downloaders = new List<Downloader>();
 
-        private static SceneAssetRequest _runningScene;
+        // 当前正在使用的 SceneAssetRequest
+        private static SceneAssetRequest _runningSceneAssetRequest;
 
-        private static readonly Dictionary<string, AssetRequest> AssetRequests = new Dictionary<string, AssetRequest>();
+        // 正在使用的 AssetRequest
+
+        private static readonly Dictionary<string, AssetRequest> UsingAssetRequestDict = new Dictionary<string, AssetRequest>();
 
         // 正在加载的 AssetRequest
         private static readonly List<AssetRequest> LoadingAssetRequestList = new List<AssetRequest>();
@@ -563,7 +576,7 @@ namespace libx {
         private static readonly List<AssetRequest> UnusedAssetRequestList = new List<AssetRequest>();
 
         // 正在使用的 SceneAssetRequest
-        private static readonly List<SceneAssetRequest> SceneAssetRequestList = new List<SceneAssetRequest>();
+        private static readonly List<SceneAssetRequest> UsingSceneAssetRequestList = new List<SceneAssetRequest>();
         // 正在加载的 SceneAssetRequest
         private static readonly List<SceneAssetRequest> LoadingSceneAssetRequestSceneList = new List<SceneAssetRequest>();
 
@@ -616,13 +629,18 @@ namespace libx {
                 if (loadingAssetRequest.Update())
                     continue;
                 if (!string.IsNullOrEmpty(loadingAssetRequest.error)) {
+
                     loadingAssetRequest.Release();
+
                     Debug.LogErrorFormat("加载失败：{0}({1})", loadingAssetRequest.url, loadingAssetRequest.error);
+
                     if (loadingAssetRequest.IsUnused()) {
                         UnusedAssetRequestList.Add(loadingAssetRequest);
                     }
+
                 } else {
                     OnAssetLoaded(loadingAssetRequest.url);
+
                     if (!LoadedAssetRequestList.Contains(loadingAssetRequest)) {
                         LoadedAssetRequestList.Add(loadingAssetRequest);
                     }
@@ -652,9 +670,9 @@ namespace libx {
                 for (var i = 0; i < UnusedAssetRequestList.Count; ++i) {
                     var request = UnusedAssetRequestList[i];
                     OnAssetUnloaded(request.url);
-                    AssetRequests.Remove(request.url);
+                    UsingAssetRequestDict.Remove(request.url);
                     request.Unload();
-                    LogFormat("UnloadAsset:{0}", request.url);
+                    LogFormat("[UnloadAsset]:{0}", request.url);
                 }
 
                 UnusedAssetRequestList.Clear();
@@ -663,10 +681,12 @@ namespace libx {
             // 处理正在加载的 SceneAssetRequest
             for (var i = 0; i < LoadingSceneAssetRequestSceneList.Count; ++i) {
                 SceneAssetRequest sceneAssetRequest = LoadingSceneAssetRequestSceneList[i];
+
                 // 更新 正在加载的 SceneAssetRequest
                 if (sceneAssetRequest.Update()) {
                     continue;
                 }
+
                 // 从正在加载的 SceneAssetRequest 中移除
                 LoadingSceneAssetRequestSceneList.RemoveAt(i);
 
@@ -675,7 +695,7 @@ namespace libx {
                     sceneAssetRequest.Release();
                 } else {
                     // 添加到正在使用的 SceneAssetRequest
-                    SceneAssetRequestList.Add(sceneAssetRequest);
+                    UsingSceneAssetRequestList.Add(sceneAssetRequest);
                     OnAssetLoaded(sceneAssetRequest.url);
                 }
 
@@ -683,13 +703,13 @@ namespace libx {
             }
 
             // 处理正在使用的 SceneAssetRequest
-            for (int i = 0; i < SceneAssetRequestList.Count; ++i) {
-                SceneAssetRequest sceneAssetRequest = SceneAssetRequestList[i];
+            for (int i = 0; i < UsingSceneAssetRequestList.Count; ++i) {
+                SceneAssetRequest sceneAssetRequest = UsingSceneAssetRequestList[i];
                 // 跳过 被引用 大于 0
                 if (!sceneAssetRequest.IsUnused())
                     continue;
                 
-                SceneAssetRequestList.RemoveAt(i);
+                UsingSceneAssetRequestList.RemoveAt(i);
                 LogFormat("UnloadScene:{0}", sceneAssetRequest.url);
 
                 OnAssetUnloaded(sceneAssetRequest.url);
@@ -704,46 +724,49 @@ namespace libx {
         // 更新 Bundles
         private static void UpdateBundles() {
             var max = MAX_BUNDLES_PERFRAME;
-            if (ToloadBundles.Count > 0 && max > 0 && LoadingBundles.Count < max) {
-                for (var i = 0; i < Math.Min(max - LoadingBundles.Count, ToloadBundles.Count); ++i) {
-                    var item = ToloadBundles[i];
+            if (ToloadBundleRequestList.Count > 0 && max > 0 && LoadingBundleRequestList.Count < max) {
+                for (var i = 0; i < Math.Min(max - LoadingBundleRequestList.Count, ToloadBundleRequestList.Count); ++i) {
+                    var item = ToloadBundleRequestList[i];
                     if (item.loadState == LoadState.Init) {
                         item.Load();
-                        LoadingBundles.Add(item);
-                        ToloadBundles.RemoveAt(i);
+                        LoadingBundleRequestList.Add(item);
+                        ToloadBundleRequestList.RemoveAt(i);
                         --i;
                         LogFormat("Remove {0} from to load bundles by init state.", item.url);
                     } else if (item.loadState == LoadState.Loaded) {
-                        ToloadBundles.RemoveAt(i);
+                        ToloadBundleRequestList.RemoveAt(i);
                         --i;
                         LogFormat("Remove {0} from to load bundles by loaded state.", item.url);
                     }
                 }
             }
 
-            for (var i = 0; i < LoadingBundles.Count; ++i) {
-                var item = LoadingBundles[i];
-                if (item.Update())
+            // 处理正在加载的 BundleReqeust
+            for (var i = 0; i < LoadingBundleRequestList.Count; ++i) {
+                BundleRequest bundleRequest = LoadingBundleRequestList[i];
+                if (bundleRequest.Update())
                     continue;
-                LoadingBundles.RemoveAt(i);
+
+                // 从
+                LoadingBundleRequestList.RemoveAt(i);
                 --i;
             }
 
-            foreach (var item in BundleRequests) {
+            foreach (var item in UsingBundleRequestDict) {
                 if (item.Value.isDone && item.Value.IsUnused()) {
-                    UnusedBundles.Add(item.Value);
+                    UnusedBundleRequestList.Add(item.Value);
                 }
             }
 
-            if (UnusedBundles.Count > 0) {
-                for (var i = 0; i < UnusedBundles.Count; ++i) {
-                    var item = UnusedBundles[i];
+            if (UnusedBundleRequestList.Count > 0) {
+                for (var i = 0; i < UnusedBundleRequestList.Count; ++i) {
+                    var item = UnusedBundleRequestList[i];
                     item.Unload();
                     LogFormat("UnloadBundle:{0}", item.url);
-                    BundleRequests.Remove(item.name);
+                    UsingBundleRequestDict.Remove(item.name);
                 }
 
-                UnusedBundles.Clear();
+                UnusedBundleRequestList.Clear();
             }
         }
 
@@ -761,10 +784,10 @@ namespace libx {
 
         public static string DumpAssets() {
             var sb = new StringBuilder();
-            if (_runningScene != null) {
-                sb.AppendLine("Scene:" + _runningScene.name);
-                sb.AppendLine("Additive:" + _runningScene.additives.Count);
-                foreach (var additive in _runningScene.additives) {
+            if (_runningSceneAssetRequest != null) {
+                sb.AppendLine("Scene:" + _runningSceneAssetRequest.name);
+                sb.AppendLine("Additive:" + _runningSceneAssetRequest.additives.Count);
+                foreach (var additive in _runningSceneAssetRequest.additives) {
                     if (additive.IsUnused()) {
                         continue;
                     }
@@ -773,13 +796,13 @@ namespace libx {
                 }
             }
 
-            sb.AppendLine("Asset:" + AssetRequests.Count);
-            foreach (var request in AssetRequests) {
+            sb.AppendLine("Asset:" + UsingAssetRequestDict.Count);
+            foreach (var request in UsingAssetRequestDict) {
                 sb.AppendLine("\t" + request.Key);
             }
 
-            sb.AppendLine("Bundle:" + BundleRequests.Count);
-            foreach (var request in BundleRequests) {
+            sb.AppendLine("Bundle:" + UsingBundleRequestDict.Count);
+            foreach (var request in UsingBundleRequestDict) {
                 sb.AppendLine("\t" + request.Key);
             }
 
@@ -804,8 +827,9 @@ namespace libx {
                 onAssetUnloaded(path);
         }
 
+        
         private static void AddRequest(AssetRequest request, bool load = true) {
-            AssetRequests.Add(request.url, request);
+            UsingAssetRequestDict.Add(request.url, request);
             LoadingAssetRequestList.Add(request);
             if (load)
                 request.Load();
@@ -826,7 +850,7 @@ namespace libx {
             }
 
             AssetRequest request;
-            if (AssetRequests.TryGetValue(path, out request)) {
+            if (UsingAssetRequestDict.TryGetValue(path, out request)) {
                 if (!request.isDone && !async) {
                     request.LoadImmediate();
                 }
@@ -847,7 +871,7 @@ namespace libx {
                 request = isWebURL ? new WebAssetRequest() : new AssetRequest();
             }
 
-            LogFormat("LoadAsset:{0}", path);
+            LogFormat("<color=red>[LoadAsset]<color>:{0}", path);
 
             request.name = path;
             request.url = path;
@@ -869,7 +893,7 @@ namespace libx {
         // 获取 完整的 assetName
         private static string GetSearchPath(string assetName, out string assetBundleName) {
             // 如果 assetName 带有路径，从 AssetToBundles 里查找到后直接返回
-            if (AssetToBundles.TryGetValue(assetName, out assetBundleName))
+            if (AssetToBundleDict.TryGetValue(assetName, out assetBundleName))
                 return assetName;
 
             // e.g. [Assets/XAsset/Demo/Scenes, Asset/XAsset/Demo/UI/Prefabs]
@@ -884,7 +908,7 @@ namespace libx {
                         return existPath;
                     }
                     // 用组合路径从 AssetToBundles 里查找
-                    if (AssetToBundles.TryGetValue(existPath, out assetBundleName))
+                    if (AssetToBundleDict.TryGetValue(existPath, out assetBundleName))
                         return existPath;
                 }
             }
@@ -911,22 +935,23 @@ namespace libx {
         // 暂时先改成0, 本来是10
         private static readonly int MAX_BUNDLES_PERFRAME = 0;
 
+        // 正在使用的 BundleRequest
         // [bundle名, BundleRequest]
-        private static readonly Dictionary<string, BundleRequest> BundleRequests =
+        private static readonly Dictionary<string, BundleRequest> UsingBundleRequestDict =
             new Dictionary<string, BundleRequest>();
 
-        private static readonly List<BundleRequest> LoadingBundles = new List<BundleRequest>();
+        private static readonly List<BundleRequest> LoadingBundleRequestList = new List<BundleRequest>();
 
-        private static readonly List<BundleRequest> UnusedBundles = new List<BundleRequest>();
+        private static readonly List<BundleRequest> UnusedBundleRequestList = new List<BundleRequest>();
 
-        private static readonly List<BundleRequest> ToloadBundles = new List<BundleRequest>();
+        private static readonly List<BundleRequest> ToloadBundleRequestList = new List<BundleRequest>();
 
-        private static readonly List<string> ActiveVariants = new List<string>();
+        private static readonly List<string> ActiveVariantList = new List<string>();
 
         // [asset名，bundle 文件名]
         // e.g.
         // [Assets/XAsset/Demo/Scenes/Title.unity, _title]
-        private static readonly Dictionary<string, string> AssetToBundles = new Dictionary<string, string>();
+        private static readonly Dictionary<string, string> AssetToBundleDict = new Dictionary<string, string>();
 
         // [bundle文件名, [子bundle文件名]]
         // e.g.
@@ -939,14 +964,14 @@ namespace libx {
         //      shared_assets_xasset_demo_ui_sprites_title
         //  ]
         // ]
-        private static readonly Dictionary<string, string[]> BundleToChildren = new Dictionary<string, string[]>();
+        private static readonly Dictionary<string, string[]> BundleToChildrenBundleDict = new Dictionary<string, string[]>();
 
         // Assets.GetChildren
         // 获取 bundle 依赖的 bundle名
-        internal static string[] GetChildren(string bundle) {
-            string[] deps;
-            if (BundleToChildren.TryGetValue(bundle, out deps))
-                return deps;
+        internal static string[] GetChildrenBundleNameArray(string bundleName) {
+            string[] childrenBundleNameArray;
+            if (BundleToChildrenBundleDict.TryGetValue(bundleName, out childrenBundleNameArray))
+                return childrenBundleNameArray;
 
             return new string[0];
         }
@@ -966,19 +991,26 @@ namespace libx {
         }
 
         // Assets.LoadBundle
+        // 加载 Bundle
         internal static BundleRequest LoadBundle(string assetBundleName, bool asyncMode) {
+
             if (string.IsNullOrEmpty(assetBundleName)) {
                 Debug.LogError("bundle == null");
                 return null;
             }
 
+            // e.g. shared_assets_xasset_demo_ui_sprites_backgrounds
             assetBundleName = RemapVariantName(assetBundleName);
-            var url = GetDataPath(assetBundleName) + assetBundleName;
+            // 
+            string url = GetDataPath(assetBundleName) + assetBundleName;
 
             BundleRequest bundleRequest;
 
-            if (BundleRequests.TryGetValue(assetBundleName, out bundleRequest)) {
+            // 在使用中的 BundleRequest 里查找
+            if (UsingBundleRequestDict.TryGetValue(assetBundleName, out bundleRequest)) {
+                // 被引用加1
                 bundleRequest.Retain();
+
                 if (!bundleRequest.isDone && !asyncMode) {
                     bundleRequest.LoadImmediate();
                 }
@@ -997,14 +1029,20 @@ namespace libx {
             bundleRequest.url = url;
             bundleRequest.name = assetBundleName;
 
-            BundleRequests.Add(assetBundleName, bundleRequest);
+            // 加入到 正在使用的 BundleRequest
+            UsingBundleRequestDict.Add(assetBundleName, bundleRequest);
+
 
             if (MAX_BUNDLES_PERFRAME > 0 && (bundleRequest is BundleAsyncRequest || bundleRequest is WebBundleRequest)) {
-                ToloadBundles.Add(bundleRequest);
+                ToloadBundleRequestList.Add(bundleRequest);
             } else {
+                // 加载 场景所在的 BundeReqeust
                 bundleRequest.Load();
-                LoadingBundles.Add(bundleRequest);
-                LogFormat("LoadBundle: {0}", url);
+
+                // 将这个BundeRequest 添加到 正在使用的 BundleRequest
+                LoadingBundleRequestList.Add(bundleRequest);
+
+                LogFormat("<color=red>[LoadBundle]</color>: {0}", url);
             }
 
             bundleRequest.Retain();
@@ -1012,6 +1050,8 @@ namespace libx {
         }
 
         // 获取 bundle 的读取路径
+        // 三种路径：S目录下，P目录下，URL下
+        //  
         private static string GetDataPath(string bundleName) {
             // P 目录是空的， 返回 basePath
             if (string.IsNullOrEmpty(updatePath))
@@ -1041,7 +1081,7 @@ namespace libx {
 
 
         private static string RemapVariantName(string bundle) {
-            var bundlesWithVariant = ActiveVariants;
+            var bundlesWithVariant = ActiveVariantList;
             // Get base bundle path
             var baseName = bundle.Split('.')[0];
 
