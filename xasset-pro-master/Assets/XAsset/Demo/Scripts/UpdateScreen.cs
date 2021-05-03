@@ -79,12 +79,17 @@ namespace libx {
             });
         }
 
+        // 清除数据
         public void Clear() {
             MessageBox.Show("提示", "清除数据后所有数据需要重新下载，请确认！,", cleanup => {
                 if (cleanup) {
+                    // 清除 P 目录 下的 Versions.bundle
                     File.Delete(Assets.updatePath + "/" + Assets.VersionsFileName);
+                    // PlayerPrefs 删除所有
                     PlayerPrefs.DeleteAll();
+                    // PlayerPrefs 保存
                     PlayerPrefs.Save();
+
                     OnMessage("数据清除完毕, TOUCH TO START");
                     OnProgress(0);
                     buttonStart.gameObject.SetActive(true);
@@ -153,6 +158,7 @@ namespace libx {
             }
         }
 
+        // 加载完成 进入 Level 场景
         private void OnComplete() {
             OnProgress(1);
             version.text = Assets.currentVersions.ver;
@@ -176,6 +182,7 @@ namespace libx {
             MessageBox.Dispose();
         }
 
+        // 退出
         private void Quit() {
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;

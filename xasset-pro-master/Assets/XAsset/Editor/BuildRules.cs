@@ -125,6 +125,7 @@ namespace libx {
         [Header("首包内容配置")]
         [Tooltip("是否整包")] public bool allAssetsToBuild;
 
+        // 必须在这里填写分包的名字, 才能在打包时 自动 把 bundle 复制到 StreamingAssets中
         [Tooltip("首包包含的分包")] public string[] patchNameInBuild = new string[0];
 
         [Tooltip("BuildPlayer的时候被打包的场景")] public SceneAsset[] scenesInBuild = new SceneAsset[0];
@@ -349,6 +350,7 @@ namespace libx {
                 case GroupBy.Explicit:
                     break;
                 case GroupBy.Filename: {
+                        // 
                         string assetNameNoExt = Path.GetFileNameWithoutExtension(assetName);
                         string directoryName = Path.GetDirectoryName(assetNameNoExt).Replace("\\", "/").Replace("/", "_");
                         groupName = directoryName + "_" + assetNameNoExt;

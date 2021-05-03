@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 03142c330ced64e0ab46cddcd0484ab7, type: 3}
   m_Name: Rules
   m_EditorClassIdentifier: 
-  build: 1
+  build: 5
   major: 0
   minor: 0
   scenesFolders:
@@ -21,42 +21,59 @@ MonoBehaviour:
   autoGroupByDirectories: []
   validateAssetPath: 0
   allAssetsToBuild: 0
-  patchNameInBuild: []
+  patchNameInBuild:
+  - Title
   scenesInBuild: []
   extension: 
   nameByHash: 0
   options: 256
   assetBuildList:
-  - assetName: Assets/XAsset/Demo/UI/Atlas/Title.spriteatlas
-    groupName: 
-    bundleName: assets_xasset_demo_ui_atlas
-    id: 0
-    groupBy: 3
   - assetName: Assets/XAsset/Demo/Scenes/Title.unity
     groupName: 
     bundleName: _title
     id: 0
     groupBy: 2
-  patchBuildList: []
+  - assetName: Assets/XAsset/Demo/UI/Prefabs/MessageBox.prefab
+    groupName: 
+    bundleName: _messagebox
+    id: 0
+    groupBy: 2
+  patchBuildList:
+  - name: Title
+    assetNameList:
+    - Assets/XAsset/Demo/Scenes/Title.unity
+    - Assets/XAsset/Demo/UI/Prefabs/MessageBox.prefab
   bundleBuildList:
-  - assetBundleName: assets_xasset_demo_ui_atlas
-    assetNames:
-    - Assets/XAsset/Demo/UI/Atlas/Title.spriteatlas
   - assetBundleName: _title
     assetNames:
     - Assets/XAsset/Demo/Scenes/Title.unity
-  - assetBundleName: children__title
+  - assetBundleName: _messagebox
     assetNames:
-    - Assets/XAsset/Demo/UI/Animations/TOUCHTOSTART.anim
-    - Assets/XAsset/Demo/UI/Sprites/Backgrounds/bg_LoadingPage.png
-    - Assets/XAsset/Demo/UI/Prefabs/UpdateScreen.prefab
-    - Assets/XAsset/Demo/UI/Animations/START.controller
-  - assetBundleName: shared_assets_xasset_demo_ui_sprites_title
+    - Assets/XAsset/Demo/UI/Prefabs/MessageBox.prefab
+  - assetBundleName: children__title
     assetNames:
     - Assets/XAsset/Demo/UI/Sprites/Title/Title2_bg.png
     - Assets/XAsset/Demo/UI/Sprites/Title/Btn_User_n.png
     - Assets/XAsset/Demo/UI/Sprites/Title/Btn_User_h.png
     - Assets/XAsset/Demo/UI/Sprites/Title/Progress1.png
+    - Assets/XAsset/Demo/UI/Animations/TOUCHTOSTART.anim
+    - Assets/XAsset/Demo/UI/Sprites/Backgrounds/bg_LoadingPage.png
     - Assets/XAsset/Demo/UI/Sprites/Title/bg_Progress.png
+    - Assets/XAsset/Demo/UI/Prefabs/UpdateScreen.prefab
+    - Assets/XAsset/Demo/UI/Animations/START.controller
     - Assets/XAsset/Demo/UI/Sprites/Title/Progress2.png
+  - assetBundleName: children__messagebox
+    assetNames:
+    - Assets/XAsset/Demo/UI/Sprites/MessageBox/Tips.png
+    - Assets/XAsset/Demo/UI/Sprites/MessageBox/Btn_button04_Yellow.png
+    - Assets/XAsset/Demo/Shaders/UIBlur.mat
+    - Assets/XAsset/Demo/UI/Sprites/MessageBox/TitleLine_Left.png
+    - Assets/XAsset/Demo/UI/Animations/MessageBox.controller
+    - Assets/XAsset/Demo/UI/Sprites/MessageBox/TitleLine_Right.png
+    - Assets/XAsset/Demo/UI/Sprites/MessageBox/Btn_button04_n.png
+    - Assets/XAsset/Demo/UI/Animations/MessageBox.anim
+    - Assets/XAsset/Demo/UI/Sprites/Backgrounds/bg_black.png
+  - assetBundleName: shaders
+    assetNames:
+    - Assets/XAsset/Demo/Shaders/SimpleGrabPassBlur.shader
   currentScene: Title

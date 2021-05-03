@@ -51,8 +51,7 @@ SpriteAtlas:
       enableRotation: 1
       enableTightPacking: 1
     variantMultiplier: 1
-    packables:
-    - {fileID: 102900000, guid: a4a59279cb0ef3b478768f9df354babd, type: 3}
+    packables: []
     totalSpriteSurfaceArea: 312130
     bindAsDefault: 1
   m_MasterAtlas: {fileID: 0}

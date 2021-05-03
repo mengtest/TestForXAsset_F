@@ -139,11 +139,12 @@ namespace libx {
                 _localProtocol = "file:///";
             }
 
-            // 加载完 Versions 的回调, 需要在调用之前 申明
-            Action<Versions> onLoadVersionsCallback = new Action<Versions>(versions => {
-                // 只有这里会赋值 currentVersion
+            // 反序列化 Versions 的回调, 需要在调用之前 申明
+            Action<Versions> onDeserializeVersionsCallback = new Action<Versions>(versions => {
+                // 这里的 currentVersions 是 从 S 目录拷贝到 P 目录的
                 currentVersions = versions;
-                ReloadVersions(currentVersions);
+
+                GetInfoFromVersions(currentVersions);
 
                 Log("Initialize");
                 LogFormat("Development:{0}", development);
@@ -159,7 +160,7 @@ namespace libx {
             // 开发模式
             if (development) {
                 if (versionsLoader != null)
-                    onLoadVersionsCallback(versionsLoader());
+                    onDeserializeVersionsCallback(versionsLoader());
             // 非开发模式
             } else {
                 // 获取 P 目录下的 versions.bundle 路径（下载到这里）
@@ -187,7 +188,7 @@ namespace libx {
                     } else {
                         // 加载 P 目录下的 Versions
                         // outside = false, 表示资源不用从外面下载
-                        updatePathVersions = LoadVersions(updatePathVersionPath);
+                        updatePathVersions = DeserializeVersions(updatePathVersionPath);
 
                         //// 本地版本暂时设置为 0.0.0
                         //PlayerPrefs.SetString(KVersions, "0.0.0");
@@ -195,7 +196,7 @@ namespace libx {
                         // 覆盖安装
                         if (OverlayInstallation(updatePathVersions.ver)) {
                             // 加载完 Versions 的回调
-                            onLoadVersionsCallback(updatePathVersions);
+                            onDeserializeVersionsCallback(updatePathVersions);
 
                             List<BundleRef> filesInBuild = updatePathVersions.GetFilesInBuild();
                             foreach (BundleRef bundleRef in filesInBuild) {
@@ -213,7 +214,7 @@ namespace libx {
 
                             //onLoadVersions(File.Exists(path) ? LoadVersions(path) : updatePathVersions);
 
-                            onLoadVersionsCallback(updatePathVersions);
+                            onDeserializeVersionsCallback(updatePathVersions);
                         }
                     }
                     unityWebRequest.Dispose();
@@ -233,8 +234,9 @@ namespace libx {
             // return true;
         }
 
-        // 重新加载 Versions, 赋值 ActiveVariants, AssetToBundles, BundleToChildren
-        private static void ReloadVersions(Versions versions) {
+        // Assets.GetInfoFromVersions
+        // 从Versions里读取信息, 赋值 ActiveVariants, AssetToBundles, BundleToChildren
+        private static void GetInfoFromVersions(Versions versions) {
             ActiveVariantList.Clear();
             AssetToBundleDict.Clear();
             BundleToChildrenBundleDict.Clear();
@@ -275,7 +277,7 @@ namespace libx {
         }
 
         // 下载 Versions
-        public static void DownloadVersions(Action<string> completed) {
+        public static void DownloadVersions(Action<string> downloadVersionsCallback) {
             // e.g. http://192.168.1.113/Bundles/Windows/versions.bundle
             string versionsFileNameUrl = GetDownloadURL(VersionsFileName);
             LogFormat("DownloadVersions:{0}", versionsFileNameUrl);
@@ -283,13 +285,16 @@ namespace libx {
             string tempVersionsFileName = Application.temporaryCachePath + "/" + VersionsFileName;
 
             // 将 服务器上的 Versions 下载到 Temp 目录
+            // 服务器上是一定要有这个 Versions 的， 不然，流程就进行不下去了
             UnityWebRequest unityWebRequest = Download(versionsFileNameUrl, tempVersionsFileName);
             unityWebRequest.SendWebRequest().completed += operation => {
                 if (string.IsNullOrEmpty(unityWebRequest.error)) {
                     // 重新加载 currentVersions
+                    // 从这里这里 currentVersions 变成了 服务器版本
                     // outside = true, 表示要从外面下载
-                    currentVersions = LoadVersions(Application.temporaryCachePath + "/" + VersionsFileName, true);
-                    ReloadVersions(currentVersions);
+                    currentVersions = DeserializeVersions(Application.temporaryCachePath + "/" + VersionsFileName, true);
+
+                    GetInfoFromVersions(currentVersions);
 
                     // 设置当前的版本
                     PlayerPrefs.SetString(KVersions, currentVersions.ver);
@@ -297,8 +302,8 @@ namespace libx {
                     RemoveUnusedAssets();
                 }
 
-                if (completed != null)
-                    completed(unityWebRequest.error);
+                if (downloadVersionsCallback != null)
+                    downloadVersionsCallback(unityWebRequest.error);
 
                 unityWebRequest.Dispose();
             };
@@ -306,7 +311,7 @@ namespace libx {
 
         // 加载versions.bundle 反序列化为 Versions
         // 
-        public static Versions LoadVersions(string filename, bool outside = false) {
+        public static Versions DeserializeVersions(string filename, bool outside = false) {
             // 不存在 直接创建一个初始的 Versions
             if (!File.Exists(filename))
                 return new Versions();
@@ -326,19 +331,22 @@ namespace libx {
             }
         }
 
+        // 下载资源
         public static bool DownloadAll(string[] patchNameArray, out Downloader downLoader) {
             if (updateAll) {
                 return DownloadAll(out downLoader);
             }
 
             List<BundleRef> bundleList = new List<BundleRef>();
+
             foreach (string patchName in patchNameArray) {
+                string saved = PlayerPrefs.GetString(patchName, string.Empty);
 
-                var saved = PlayerPrefs.GetString(patchName, string.Empty);
-
+                // 分包 版本号 不一致
                 if (!saved.Equals(currentVersions.ver)) {
-                    var newFiles = GetNewFiles(patchName);
-                    foreach (var file in newFiles)
+                    // 
+                    List<BundleRef> bundleRefList = GetNewBundleRef(patchName);
+                    foreach (var file in bundleRefList)
                         if (!bundleList.Exists(x => x.name.Equals(file.name)))
                             bundleList.Add(file);
                 }
@@ -352,6 +360,7 @@ namespace libx {
                 downLoader = downloader;
                 downLoader.onFinished += () => {
                     foreach (var item in patchNameArray) {
+                        // 保存分包的版本号
                         PlayerPrefs.SetString(item, currentVersions.ver);
                     }
                 };
@@ -370,7 +379,7 @@ namespace libx {
             for (int i = 0; i < currentVersions.bundleRefList.Count; i++) {
                 BundleRef bundleRef = currentVersions.bundleRefList[i];
                 // 原代码
-                if (IsNew(bundleRef)) {
+                if (IsNewBundleRef(bundleRef)) {
                     bundleRefList.Add(bundleRef);
                 }
 
@@ -478,16 +487,19 @@ namespace libx {
 
         /// <summary>
         /// StreamingAssets 内的版本
+        /// S 目录 会拷贝到 P 目录
         /// </summary>
         public static Versions updatePathVersions { get; private set; }
 
         /// <summary>
-        /// 服务器的版本
+        /// 有两个版本
+        ///     1. 从 basePath 目录 拷贝到 P 目录后, 读取的是 P 目录的 版本
+        ///     2. 进入下载阶段后, 先下载 服务器的 Versions 到 temp 目录, 然后读取这个 Versions
         /// </summary>
         public static Versions currentVersions { get; private set; }
 
         // Bundle 需要更新吗
-        private static bool IsNew(BundleRef bundle) {
+        private static bool IsNewBundleRef(BundleRef bundle) {
             if (updatePathVersions != null)
                 if (updatePathVersions.Contains(bundle))
                     return false;
@@ -519,14 +531,16 @@ namespace libx {
             //}
         }
 
-        private static List<BundleRef> GetNewFiles(string patch) {
-            var list = new List<BundleRef>();
-            var files = currentVersions.GetFiles(patch);
-            foreach (var file in files)
-                if (IsNew(file))
-                    list.Add(file);
+        // 获取新Bundle
+        private static List<BundleRef> GetNewBundleRef(string patch) {
+            List<BundleRef> bundleRefList = new List<BundleRef>();
+            List<BundleRef> findedBundleRefList = currentVersions.GetBundleRef(patch);
 
-            return list;
+            foreach (BundleRef bundleRef in findedBundleRefList)
+                if (IsNewBundleRef(bundleRef))
+                    bundleRefList.Add(bundleRef);
+
+            return bundleRefList;
         }
 
         private static string GetPlatformForAssetBundles(RuntimePlatform target) {
@@ -762,7 +776,7 @@ namespace libx {
                 for (var i = 0; i < UnusedBundleRequestList.Count; ++i) {
                     var item = UnusedBundleRequestList[i];
                     item.Unload();
-                    LogFormat("UnloadBundle:{0}", item.url);
+                    LogFormat("<color=red>UnloadBundle</color>:{0}", item.url);
                     UsingBundleRequestDict.Remove(item.name);
                 }
 
@@ -871,7 +885,7 @@ namespace libx {
                 request = isWebURL ? new WebAssetRequest() : new AssetRequest();
             }
 
-            LogFormat("<color=red>[LoadAsset]<color>:{0}", path);
+            LogFormat("<color=red>[LoadAsset]</color>:{0}", path);
 
             request.name = path;
             request.url = path;
@@ -1061,14 +1075,19 @@ namespace libx {
                 return updatePath;
 
 
-            
+            // 还没进入 下载阶段时, currentVersions == updatePathVersions
+            // 下载完 服务器的 versions 后, currentVersions == 服务器最新的 Versions
             if (currentVersions != null) {
-                var server = currentVersions.GetBundle(bundleName);
-                if (server != null) {
-                    var local = updatePathVersions.GetBundle(bundleName);
-                    if (local != null) {
-                        // 服务器版本 和 P 目录版本不一样
-                        if (!local.EqualsWithContent(server)) {
+                BundleRef serverBundleRef = currentVersions.GetBundle(bundleName);
+
+                if (serverBundleRef != null) {
+                    BundleRef localBundleRef = updatePathVersions.GetBundle(bundleName);
+
+                    if (localBundleRef != null) {
+                        // 服务器版本 和 S 目录版本不一样
+                        if (!localBundleRef.EqualsWithContent(serverBundleRef)) {
+                            // 内容不相同, 返回 要下载的 地址
+                            // e.g. http://192.168.1.113/Bundles/
                             return GetDownloadURL(string.Empty);
                         }
                     }

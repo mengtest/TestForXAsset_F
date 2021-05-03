@@ -161,9 +161,13 @@ namespace libx {
         }
     }
 
+    // Bundle 里的 asset 请求（同步）
     public class BundleAssetRequest : AssetRequest {
+        // asset 所属的 bundle名字 e.g. _messagebox
         protected readonly string assetBundleName;
-        protected BundleRequest bundle;
+        // 包含的 BundleRequest
+        protected BundleRequest bundleRequest;
+        // 包含的 BundleRequest 的 子 BundleRequest
         protected List<BundleRequest> children = new List<BundleRequest>();
 
 
@@ -171,21 +175,28 @@ namespace libx {
             assetBundleName = bundle;
         }
 
-        // BundleAssetRequest.Load()
+        // BundleAssetRequest.Load() (同步)
         internal override void Load() {
-            bundle = Assets.LoadBundle(assetBundleName);
-            var bundles = Assets.GetChildrenBundleNameArray(assetBundleName);
-            foreach (var item in bundles) {
-                children.Add(Assets.LoadBundle(item));
+            // 同步加载 asset 所在的 BundleRequest
+            bundleRequest = Assets.LoadBundle(assetBundleName);
+
+            string[] childBundleNameArray = Assets.GetChildrenBundleNameArray(assetBundleName);
+            foreach (string childBundleName in childBundleNameArray) {
+                // 同步加载 依赖 bundle
+                children.Add(Assets.LoadBundle(childBundleName));
             }
-            asset = bundle.assetBundle.LoadAsset(url, assetType);
+
+            // 依赖bundle 加载完了, 加载 bundle 里的资源
+            asset = bundleRequest.assetBundle.LoadAsset(url, assetType);
+
+            // BundleAssetRequest.loadState = LoadState.Loaded
             loadState = LoadState.Loaded;
         }
 
         internal override void Unload() {
-            if (bundle != null) {
-                bundle.Release();
-                bundle = null;
+            if (bundleRequest != null) {
+                bundleRequest.Release();
+                bundleRequest = null;
             }
 
             foreach (var item in children) {
@@ -219,11 +230,11 @@ namespace libx {
                     return _request.progress * 0.7f + 0.3f;
                 }
 
-                if (bundle == null) {
+                if (bundleRequest == null) {
                     return 1;
                 }
 
-                var value = bundle.progress;
+                var value = bundleRequest.progress;
                 var max = children.Count;
                 if (max <= 0)
                     return value * 0.3f;
@@ -256,10 +267,10 @@ namespace libx {
             }
 
             if (_request == null) {
-                if (!bundle.isDone) {
+                if (!bundleRequest.isDone) {
                     return true;
                 }
-                if (OnError(bundle)) {
+                if (OnError(bundleRequest)) {
                     return false;
                 }
 
@@ -273,7 +284,7 @@ namespace libx {
                     }
                 }
 
-                _request = bundle.assetBundle.LoadAssetAsync(url, assetType);
+                _request = bundleRequest.assetBundle.LoadAssetAsync(url, assetType);
                 if (_request == null) {
                     error = "request == null";
                     loadState = LoadState.Loaded;
@@ -295,7 +306,7 @@ namespace libx {
         }
 
         internal override void Load() {
-            bundle = Assets.LoadBundleAsync(assetBundleName);
+            bundleRequest = Assets.LoadBundleAsync(assetBundleName);
             var bundles = Assets.GetChildrenBundleNameArray(assetBundleName);
             foreach (var item in bundles) {
                 children.Add(Assets.LoadBundleAsync(item));
@@ -310,13 +321,13 @@ namespace libx {
         }
 
         public override void LoadImmediate() {
-            bundle.LoadImmediate();
+            bundleRequest.LoadImmediate();
             foreach (var item in children) {
                 item.LoadImmediate();
             }
-            if (bundle.assetBundle != null) {
+            if (bundleRequest.assetBundle != null) {
                 var assetName = Path.GetFileName(url);
-                asset = bundle.assetBundle.LoadAsset(assetName, assetType);
+                asset = bundleRequest.assetBundle.LoadAsset(assetName, assetType);
             }
             loadState = LoadState.Loaded;
         }

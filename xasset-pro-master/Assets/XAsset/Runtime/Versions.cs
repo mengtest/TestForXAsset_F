@@ -109,7 +109,9 @@ namespace libx {
                    crc.Equals(other.crc, StringComparison.OrdinalIgnoreCase);
         }
 
+        // 对比 BundleRef 的内容
         public bool EqualsWithContent(BundleRef other) {
+            // 对比 bundle 的文件长度和  crc
             return len == other.len && crc.Equals(other.crc, StringComparison.OrdinalIgnoreCase);
         }
 
@@ -169,9 +171,11 @@ namespace libx {
         // 包含的 Patch List
         public List<Patch> patchList = new List<Patch>();
 
-        // bundle名对应的 BundleRef
+        // bundle名 和对应的 BundleRef
         // e.g. [assets_xasset_extend_testimage, BundlRef]
         private readonly Dictionary<string, BundleRef> _bundleName2BundleRefDict = new Dictionary<string, BundleRef>();
+        // 分包名 和 对应的Patch
+        // e.g. [Title, [name=Title, files=1,3,0,2,4]]
         private readonly Dictionary<string, Patch> _patchName2PatchDict = new Dictionary<string, Patch>();
 
         // 
@@ -201,25 +205,30 @@ namespace libx {
             return false;
         }
 
-        public BundleRef GetBundle(string name) {
-            BundleRef file;
-            _bundleName2BundleRefDict.TryGetValue(name, out file);
-            return file;
+        // 根据 bundle 名， 获取 BundleRef
+        public BundleRef GetBundle(string bundleName) {
+            BundleRef bundleRef;
+            _bundleName2BundleRefDict.TryGetValue(bundleName, out bundleRef);
+            return bundleRef;
         }
 
-        public List<BundleRef> GetFiles(string patchName) {
-            var list = new List<BundleRef>();
+
+        // Versions.GetFiles
+        // 通过分包名， 获取分包里的 BundleRef
+        public List<BundleRef> GetBundleRef(string patchName) {
+            List<BundleRef> bundleRefList = new List<BundleRef>();
             Patch patch;
+
             if (_patchName2PatchDict.TryGetValue(patchName, out patch)) {
                 if (patch.bundleIDList.Count > 0) {
-                    foreach (var file in patch.bundleIDList) {
-                        var item = bundleRefList[file];
-                        list.Add(item);
+                    foreach (int bundleID in patch.bundleIDList) {
+                        BundleRef bundleRef = this.bundleRefList[bundleID];
+                        bundleRefList.Add(bundleRef);
                     }
                 }
             }
 
-            return list;
+            return bundleRefList;
         }
 
         // Versions.GetFilesInBuild()
@@ -323,7 +332,7 @@ namespace libx {
             count = reader.ReadInt32();
             // 
             for (var i = 0; i < count; i++) {
-                var patch = new Patch();
+                Patch patch = new Patch();
                 patch.Deserialize(reader);
                 patchList.Add(patch);
                 _patchName2PatchDict[patch.name] = patch;

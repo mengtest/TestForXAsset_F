@@ -221,8 +221,9 @@ namespace libx {
                 assetRefList.Add(assetRef);
             }
 
-            Func<List<string>, List<int>> getFilesCallback = delegate (List<string> assetNameList) {
-                List<int> ret = new List<int>();
+            // 根据 asset 名(一个 PatchBuild 里可能有多个 asset ) 获取 相关的 bundleID (包括, bundle 的子bundleID)
+            Func<List<string>, List<int>> getBundleIDListCallback = delegate (List<string> assetNameList) {
+                List<int> bundleIDList = new List<int>();
 
                 foreach (string assetName in assetNameList) {
                     // 根据 asset 名 获取 BundleRef
@@ -230,19 +231,21 @@ namespace libx {
                     asset2BundleRefDict.TryGetValue(assetName, out bundleRef);
 
                     if (bundleRef != null) {
-                        if (!ret.Contains(bundleRef.id)) {
-                            ret.Add(bundleRef.id);
+                        if (!bundleIDList.Contains(bundleRef.id)) {
+                            // 添加 bundleID
+                            bundleIDList.Add(bundleRef.id);
                         }
-                        foreach (var child in bundleRef.childrenBundleIDArray) {
-                            if (!ret.Contains(child)) {
-                                ret.Add(child);
+                        // 添加 bundle 的 子 bundleID
+                        foreach (int childBundleID in bundleRef.childrenBundleIDArray) {
+                            if (!bundleIDList.Contains(childBundleID)) {
+                                bundleIDList.Add(childBundleID);
                             }
                         }
                     } else {
                         Debug.LogWarning("bundle == nil, file:" + assetName);
                     }
                 }
-                return ret;
+                return bundleIDList;
             };
 
             for (var i = 0; i < buidlRules.patchBuildList.Count; i++) {
@@ -251,7 +254,7 @@ namespace libx {
                 // 构造 Patch
                 patchList.Add(new Patch {
                     name = patchBuild.name,
-                    bundleIDList = getFilesCallback(patchBuild.assetNameList),
+                    bundleIDList = getBundleIDListCallback(patchBuild.assetNameList),
                 });
             }
 
@@ -423,30 +426,44 @@ namespace libx {
             EditorBuildSettings.scenes = scenes;
         }
 
+        // 拷贝文件到 StreamingAssets
         public static void CopyAssets() {
-            var dir = Application.streamingAssetsPath + "/" + Assets.BundlesDirName;
+            // e.g. D:/Projects/UnityProjects/TestForXAsset5.1/xasset-pro-master/Assets/StreamingAssets/Bundles
+            string dir = Application.streamingAssetsPath + "/" + Assets.BundlesDirName;
             if (Directory.Exists(dir)) {
                 Directory.Delete(dir, true);
             }
+
             Directory.CreateDirectory(dir);
-            var sourceDir = outputPath;
-            var versions = Assets.LoadVersions(Path.Combine(sourceDir, Assets.VersionsFileName));
-            foreach (var file in versions.bundleRefList) {
-                if (file.location == 1) {
-                    var destFile = Path.Combine(dir, file.name);
-                    var destDir = Path.GetDirectoryName(destFile);
+
+            // e.g. Bundles/Android
+            string sourceDir = outputPath;
+            Versions versions = Assets.DeserializeVersions(Path.Combine(sourceDir, Assets.VersionsFileName));
+
+            foreach (BundleRef bundleRef in versions.bundleRefList) {
+                // location = 1 , 表示在包里
+                if (bundleRef.location == 1) {
+                    // D:/Projects/UnityProjects/TestForXAsset5.1/xasset-pro-master/Assets/StreamingAssets/Bundles\\_title
+                    string destFile = Path.Combine(dir, bundleRef.name);
+                    // D:\\Projects\\UnityProjects\\TestForXAsset5.1\\xasset-pro-master\\Assets\\StreamingAssets\\Bundles
+                    string destDir = Path.GetDirectoryName(destFile);
+
                     if (!Directory.Exists(destDir) && !string.IsNullOrEmpty(destDir)) {
                         Directory.CreateDirectory(destDir);
                     }
-                    File.Copy(Path.Combine(sourceDir, file.name), destFile);
+
+                    // 拷贝到 StreamingAssets 对应的目录
+                    File.Copy(Path.Combine(sourceDir, bundleRef.name), destFile);
                 }
             }
+
+            // 拷贝 Versions.bundle 到 StreamingAssets 文件夹中
             File.Copy(Path.Combine(sourceDir, Assets.VersionsFileName), Path.Combine(dir, Assets.VersionsFileName));
         }
 
         // 查看版本文件
         public static void ViewVersions(string path) {
-            Versions versions = Assets.LoadVersions(path);
+            Versions versions = Assets.DeserializeVersions(path);
             string txt = "versions.txt";
             File.WriteAllText(txt, versions.ToString());
             EditorUtility.OpenWithDefaultApp(txt);
