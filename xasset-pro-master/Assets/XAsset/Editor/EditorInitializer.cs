@@ -116,7 +116,7 @@ namespace libx {
             }
 
             // 编辑器下的 Versions
-            var developVersions = new Versions();
+            Versions developVersions = new Versions();
             developVersions.dirArray = searchPathList.ToArray();
             developVersions.assetRefList = assetRefList;
             developVersions.patchList = patchList;

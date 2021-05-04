@@ -87,6 +87,8 @@ namespace libx {
         // 如果一个asset没有设置bundle且被多个bundle引用，那这个 asset 就会被加入到 _duplicated
         private readonly Dictionary<string, HashSet<string>> _trackerDict = new Dictionary<string, HashSet<string>>();
 
+        // 通过AssetBuild 转化得到
+        //
         // [asset名, bundle名]
         // e.g. 普通的 asset->bundle
         // [Assets/XAsset/Extend/TestImage/Btn_Tab1_n 1.png, assets_xasset_extend_testimage]
@@ -131,6 +133,7 @@ namespace libx {
         [Tooltip("BuildPlayer的时候被打包的场景")] public SceneAsset[] scenesInBuild = new SceneAsset[0];
 
         [Header("AB打包配置")]
+        // 所有 AB 包的 扩展名
         [Tooltip("AB的扩展名")] public string extension = "";
         public bool nameByHash;
         [Tooltip("打包AB的选项")] public BuildAssetBundleOptions options = BuildAssetBundleOptions.ChunkBasedCompression;
@@ -165,7 +168,7 @@ namespace libx {
         public void OnLoadAsset(string assetPath) {
             // 开启了自动记录 并且是 开发模式
             if (autoRecord && Assets.development) {
-                GroupAsset(assetPath, GetGroupBy(assetPath));
+                GenAssetBuild(assetPath, GetGroupBy(assetPath));
             } else {
                 // 校验文件路径
                 if (validateAssetPath) {
@@ -210,8 +213,8 @@ namespace libx {
 
         #region API
 
-        // 对 Asset 进行分组
-        public AssetBuild GroupAsset(string path, GroupBy groupBy = GroupBy.Filename, string group = null) {
+        // 生成 AsssetBuild
+        public AssetBuild GenAssetBuild(string path, GroupBy groupBy = GroupBy.Filename, string group = null) {
             // 在 assetBuildList 里查找 有没有记录
             AssetBuild tempAssetBuild = this.assetBuildList.Find(assetBuild => assetBuild.assetName.Equals(path));
 
@@ -281,7 +284,7 @@ namespace libx {
             Version version = new Version(major, minor, build);
             return version.ToString();
         }
-
+        // BuildRules.Analyze()
         // 解析 Rules.asset
         public void Analyze() {
             // 清空 _unexplicits, _tracker, _duplicated, _asset2BundleDict
@@ -291,7 +294,7 @@ namespace libx {
             // 获取依赖, 分析出  _tracker, _unexplicits, _duplicated
             AnalysisAssets();
             // 优化资源
-            OptimizeAssets();
+            OptimizeAssetsFromUnexplicitDict();
             // 保存 BuildRules
             Save();
         }
@@ -309,7 +312,7 @@ namespace libx {
 
         #region Private
 
-        private string GetGroupName(AssetBuild assetBuild) {
+        private string GetGroupNameByAssetBuild(AssetBuild assetBuild) {
             return GetGroupName(assetBuild.groupBy, assetBuild.assetName, assetBuild.groupName);
         }
 
@@ -334,14 +337,14 @@ namespace libx {
             return assetName.EndsWith(".unity");
         }
 
-        // 获取文件的组名
+        // 获取文件的分组名
         private string GetGroupName(GroupBy groupBy, string assetName, string groupName = null, bool isChildren = false, bool isShared = false) {
             // 特殊处理 shader 的 组名  固定为 shaders
             if (assetName.EndsWith(".shader")) {
                 groupName = "shaders";
                 groupBy = GroupBy.Explicit;
                 isChildren = false;
-            
+            // 特殊处理 场景的 组名
             } else if (IsScene(assetName)) {
                 groupBy = GroupBy.Filename;
             }
@@ -353,6 +356,7 @@ namespace libx {
                         // 
                         string assetNameNoExt = Path.GetFileNameWithoutExtension(assetName);
                         string directoryName = Path.GetDirectoryName(assetNameNoExt).Replace("\\", "/").Replace("/", "_");
+                        // groupName 通过 组合得到
                         groupName = directoryName + "_" + assetNameNoExt;
                     }
                     break;
@@ -361,10 +365,13 @@ namespace libx {
                         // assetName    e.g. Assets/XAsset/Extend/TestImage/Btn_Tab1_n 1.png
                         // directoryName    e.g. Assets_XAsset_Extend_TestImage
                         string directoryName = Path.GetDirectoryName(assetName).Replace("\\", "/").Replace("/", "_");
+                        // groupName 是 文件夹名
                         groupName = directoryName;
                         break;
                     }
             }
+
+            // 没有
 
             if (isChildren) {
                 return "children_" + groupName;
@@ -373,6 +380,8 @@ namespace libx {
             if (isShared) {
                 groupName = "shared_" + groupName;
             }
+
+            // 是否转 hash
             return (nameByHash ? Utility.GetMD5Hash(groupName) : groupName.TrimEnd('_').ToLower()) + extension;
         }
 
@@ -380,30 +389,41 @@ namespace libx {
         // 添加 _tracker 记录
         // 添加 _unexplicits 记录
         // 添加 _duplicated 记录
-        private void Track(string assetName, string bundleName) {
+        private void Track(string dependencyAssetName, string bundleName) {
             HashSet<string> hashSet;
 
-            if (!_trackerDict.TryGetValue(assetName, out hashSet)) {
+            if (!_trackerDict.TryGetValue(dependencyAssetName, out hashSet)) {
                 hashSet = new HashSet<string>();
-                _trackerDict.Add(assetName, hashSet);
+                _trackerDict.Add(dependencyAssetName, hashSet);
             }
 
+            // 同一个资源可能被多个
             hashSet.Add(bundleName);
 
-            string bundleNameTemp;
-            _asset2BundleDict.TryGetValue(assetName, out bundleNameTemp);
+            // 在 Asset2BundleDict 中 查找 asset 对应的 bundle
+            string findedBundleNameInAsset2BundleDict;
+            _asset2BundleDict.TryGetValue(dependencyAssetName, out findedBundleNameInAsset2BundleDict);
+
             // _asset2BundleDict 里找不到 这个 bundle名， 因为没有设置
             // 是分析依赖时找出来的
-            if (string.IsNullOrEmpty(bundleNameTemp)) {
+            if (string.IsNullOrEmpty(findedBundleNameInAsset2BundleDict)) {
                 // e.g. [Assets/XAsset/Extend/TestCommon/Btn_User_h 1.png, children_assets_extend_testprefab"]
                 // groupName = bundleName
-                // isChildren = true
-                // bundle 名 为最后分析的那一个
-                _unexplicitDict[assetName] = GetGroupName(GroupBy.Explicit, assetName, bundleName, true);
+                //
+                // [isChildren = true] 
+                // 
+                // 情况1. assetName 只被一处引用,
+                //  1. A 依赖 assetName 且 assetName 没有 对应的 bundleName, bundleName = A, groupName = children_A
+                // 
+                // 情况2. assetName 被多处引用,按照分析的顺序
+                //  1. A 依赖 assetName 且 assetName 没有 对应的 bundleName, bundleName = A, groupName = children_A
+                //  2. B 依赖 assetName 且 assetName 没有 对应的 bundleName, bundleName = B, groupName = children_B (覆盖了上一条)
+                //  覆盖的情况 会在 OptimizeAsset 中处理
+                _unexplicitDict[dependencyAssetName] = GetGroupName(GroupBy.Explicit, dependencyAssetName, bundleName, true);
 
                 // 同一个资源被多个不同的 bundle 引用, 添加到 _duplicatedList
                 if (hashSet.Count > 1) {
-                    _duplicatedList.Add(assetName);
+                    _duplicatedList.Add(dependencyAssetName);
                 }
             }
         }
@@ -412,10 +432,14 @@ namespace libx {
         private void BundleAsset(string assetName, string assetBundleName) {
             // 如果 是场景文件, 要重新
             if (IsScene(assetName)) {
-                assetBundleName = GetGroupName(GroupAsset(assetName));
+                assetBundleName = GetGroupNameByAssetBuild(
+                    // 1. 根据场景
+                    GenAssetBuild(assetName)
+                );
             }
 
             // e.g. [Assets/XAsset/Extend/TestImage/Btn_Tab1_n 1.png, assets_xasset_extend_testimage]
+            // 多个 不同的 assetName  可能有相同的 assetBundleName
             _asset2BundleDict[assetName] = assetBundleName;
         }
 
@@ -510,13 +534,14 @@ namespace libx {
             for (int i = 0; i < assetBuildListTemp.Count; i++) {
 
                 AssetBuild assetBuild = assetBuildListTemp[i];
-                // 跳过 GroupBy.None
+
+                // 跳过 GroupBy.None, 这里暂不处理 GroupBy.None 的情况
                 if (assetBuild.groupBy == GroupBy.None) {
                     continue;
                 }
 
                 // 获取 asset 的 GroupName, 设置为 AssetBuild.bundleName
-                assetBuild.bundleName = GetGroupName(assetBuild);
+                assetBuild.bundleName = GetGroupNameByAssetBuild(assetBuild);
                 // 将 assetName 和 assetBundleName 的 对应关系 存储到 _asset2Bundles
                 BundleAsset(assetBuild.assetName, assetBuild.bundleName);
             }
@@ -534,30 +559,31 @@ namespace libx {
             foreach (KeyValuePair<string, List<string>> item in bundle2AssetDict) {
                 string bundleName = item.Key;
 
-                var tips = string.Format("分析依赖{0}/{1}", i, bundle2AssetDict.Count);
+                string tips = string.Format("分析依赖{0}/{1}", i, bundle2AssetDict.Count);
 
                 if (EditorUtility.DisplayCancelableProgressBar(tips, bundleName, i / (float)bundle2AssetDict.Count))
                     break;
 
+                // 获取 一个 bundle
                 // [assetName, ...]
                 string[] assetPaths = item.Value.ToArray();
 
                 // 获取 [assetName, ...] 的依赖文件名（包括自身）
-                string[] dependencies = AssetDatabase.GetDependencies(assetPaths, true);
+                string[] dependencyAssetNameArray = AssetDatabase.GetDependencies(assetPaths, true);
 
-                if (dependencies.Length > 0)
-                    foreach (string assetName in dependencies) {
-                        // 不Track .spriteatlas, .giparams, LightingData.asset
-                        if (Directory.Exists(assetName)
-                            || assetName.EndsWith(".spriteatlas")
-                            || assetName.EndsWith(".giparams")
-                            || assetName.EndsWith("LightingData.asset")) {
+                if (dependencyAssetNameArray.Length > 0)
+                    foreach (string dependencyAssetName in dependencyAssetNameArray) {
+                        // 不 Track 文件夹, .spriteatlas, .giparams, LightingData.asset
+                        if (Directory.Exists(dependencyAssetName)
+                            || dependencyAssetName.EndsWith(".spriteatlas")
+                            || dependencyAssetName.EndsWith(".giparams")
+                            || dependencyAssetName.EndsWith("LightingData.asset")) {
                             continue;
                         }
 
                         // 验证文件
-                        if (ValidateAsset(assetName)) {
-                            Track(assetName, bundleName);
+                        if (ValidateAsset(dependencyAssetName)) {
+                            Track(dependencyAssetName, bundleName);
                         }
                     }
                 i++;
@@ -565,7 +591,8 @@ namespace libx {
         }
 
         // 优化多个文件
-        private void OptimizeAssets() {
+        private void OptimizeAssetsFromUnexplicitDict() {
+
             foreach (KeyValuePair<string, string> item in _unexplicitDict) {
                 // 查找 _tracker 里的 asset 只属于一个 bundle, 添加到 _asset2BundleDict
                 // e.g. [Assets/XAsset/Extend/TestCommon/Btn_User_h 2.png, children_assets_xasset_extend_testprefab3]
@@ -592,11 +619,11 @@ namespace libx {
         }
 
         // 优化被多个bundle 引用的 未设置过 bundle 的 asset
-        private void OptimizeAsset(string asset) {
+        private void OptimizeAsset(string assetName) {
             // 添加到 _asset2BundleDict
             // isShared = true
             // e.g. [Assets/XAsset/Extend/TestCommon/Btn_User_h 1.png, shared_assets_xasset_extend_testcommon]
-            _asset2BundleDict[asset] = GetGroupName(GroupBy.Directory, asset, null, false, true);
+            _asset2BundleDict[assetName] = GetGroupName(GroupBy.Directory, assetName, null, false, true);
         }
 
         #endregion

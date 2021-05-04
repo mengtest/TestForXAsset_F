@@ -29,26 +29,33 @@ using UnityEngine;
 using UnityEngine.UI;
 
 namespace libx {
-    [ExecuteInEditMode]
+
+    // Title 场景有使用
+    [ExecuteInEditMode] // 编辑器状态下（没有运行），修改会触发
     public class BackgroundAdapter : MonoBehaviour {
+
         private CanvasScaler _scaler;
 
         public void OnStart() {
             UpdateScale();
         }
 
+        // 调整比例
         private void UpdateScale() {
-            if (_scaler == null) _scaler = GetComponentInParent<CanvasScaler>();
+            if (_scaler == null) 
+                _scaler = GetComponentInParent<CanvasScaler>();
 
-            var resolution = _scaler.referenceResolution;
-            var rt = _scaler.transform as RectTransform;
-            if (rt == null) return;
-            var screenSize = rt.sizeDelta;
-            var factor = Mathf.Max(screenSize.x / resolution.x, screenSize.y / resolution.y);
-            var scale = Vector3.one * factor;
+            Vector2 resolution = _scaler.referenceResolution;
+            RectTransform rt = _scaler.transform as RectTransform;
+            if (rt == null) 
+                return;
+            Vector2 screenSize = rt.sizeDelta;
+            float factor = Mathf.Max(screenSize.x / resolution.x, screenSize.y / resolution.y);
+            Vector3 scale = Vector3.one * factor;
             transform.localScale = scale;
         }
 
+        // 编辑器环境下才运行
         [Conditional("UNITY_EDITOR")]
         private void Update() {
             UpdateScale();

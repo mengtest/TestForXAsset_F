@@ -4,10 +4,11 @@ using Debug = UnityEngine.Debug;
 
 namespace libx {
 
-    // 挂在在 打包场景中
+    // 启动器
     public class Initializer : MonoBehaviour {
+
         public bool splash;
-        // Initializer.loggable
+        // 是否开启 xasset 的 log
         public bool loggable;
         // 校验类型
         public VerifyBy verifyBy = VerifyBy.CRC;

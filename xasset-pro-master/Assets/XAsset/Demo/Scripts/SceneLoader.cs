@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 
 namespace libx {
+
+    // Splash 场景使用
     public class SceneLoader : MonoBehaviour {
         public string scene;
         public float delay;

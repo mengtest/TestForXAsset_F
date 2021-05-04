@@ -30,41 +30,64 @@ using System.IO;
 using UnityEngine;
 
 namespace libx {
-    // 下载器
+
+    // 下载器，主要用来管理 Download
     public class Downloader {
+
+        // 获取显示的下载速度
         public static string GetDisplaySpeed(float downloadSpeed) {
+
+            // 大于 1mb/s 显示 mb
             if (downloadSpeed >= 1024 * 1024) {
                 return string.Format("{0:f2}MB/s", downloadSpeed * BYTES_2_MB);
             }
+
+            // 大于 1kb/s 显示 kb
             if (downloadSpeed >= 1024) {
                 return string.Format("{0:f2}KB/s", downloadSpeed / 1024);
             }
+
+            // 显示 byte/s 
             return string.Format("{0:f2}B/s", downloadSpeed);
         }
 
+        // 获取显示的下载内容的大小
         public static string GetDisplaySize(long downloadSize) {
+            // 大于 1mb 显示 mb
             if (downloadSize >= 1024 * 1024) {
                 return string.Format("{0:f2}MB", downloadSize * BYTES_2_MB);
             }
+
+            // 大于 1kb 显示 kb
             if (downloadSize >= 1024) {
                 return string.Format("{0:f2}KB", downloadSize / 1024);
             }
+
+            // 显示 byte
             return string.Format("{0:f2}B", downloadSize);
         }
 
+        // byte 转 mb
         private const float BYTES_2_MB = 1f / (1024 * 1024);
 
+        // 同时 存在的 Download 数量
         public int maxDownloads = 3;
+
 
         private readonly List<Download> _downloads = new List<Download>();
         private readonly List<Download> _progressing = new List<Download>();
         private readonly List<Download> _prepared = new List<Download>();
 
+        // 下载更新回调
         public Action<long, long, float> onUpdate;
+
+        // 下载完成回调
         public Action onFinished;
 
         private int _index;
+        // 开始下载的时间
         private float _startTime;
+        //
         private float _lastTime;
         private long _lastSize;
         private bool _paused;
@@ -80,12 +103,14 @@ namespace libx {
         public List<Download> downloads { get { return _downloads; } }
 
         private long GetDownloadSize() {
-            var len = 0L;
-            var downloadSize = 0L;
+            long len = 0L;
+            long downloadSize = 0L;
+
             foreach (var download in _downloads) {
                 downloadSize += download.position;
                 len += download.len;
             }
+
             return downloadSize - (len - size);
         }
 
@@ -129,6 +154,7 @@ namespace libx {
             _index = 0;
             _lastTime = 0f;
             _lastSize = 0L;
+            
             _startTime = 0;
 
             foreach (var item in _progressing) {
@@ -201,16 +227,21 @@ namespace libx {
 
             position = GetDownloadSize();
 
-            var elapsed = Time.realtimeSinceStartup - _startTime;
-            if (elapsed - _lastTime < sampleTime)
+
+            // 从开始下载到现在 经过的时间
+            float elapsedTimeSinceStart = Time.realtimeSinceStartup - _startTime;
+
+            if (elapsedTimeSinceStart - _lastTime < sampleTime)
                 return;
 
-            var deltaTime = elapsed - _lastTime;
+            var deltaTime = elapsedTimeSinceStart - _lastTime;
             speed = (position - _lastSize) / deltaTime;
             if (onUpdate != null) {
                 onUpdate(position, size, speed);
             }
-            _lastTime = elapsed;
+
+            _lastTime = elapsedTimeSinceStart;
+
             _lastSize = position;
         }
 

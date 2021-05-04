@@ -34,10 +34,13 @@ using Object = UnityEngine.Object;
 
 namespace libx {
     public static class MenuItems {
+
+        // 拷贝文件到 StreamingAssets
         [MenuItem("XASSET/Copy Bundles")]
         private static void CopyBundles() {
             BuildScript.CopyAssets();
         }
+
 
         [MenuItem("XASSET/Build/Bundles")]
         private static void BuildBundles() {
@@ -49,6 +52,7 @@ namespace libx {
             Debug.Log("BuildBundles " + watch.ElapsedMilliseconds + " ms.");
         }
 
+        // 构建 安装包
         [MenuItem("XASSET/Build/Player")]
         private static void BuildPlayer() {
             var watch = new Stopwatch();
@@ -57,6 +61,7 @@ namespace libx {
             watch.Stop();
             Debug.Log("BuildPlayer " + watch.ElapsedMilliseconds + " ms.");
         }
+
 
         [MenuItem("XASSET/Build/Rules")]
         private static void BuildRules() {
@@ -69,8 +74,9 @@ namespace libx {
 
         [MenuItem("XASSET/View/Versions")]
         private static void ViewVersions() {
-            var path = EditorUtility.OpenFilePanel("OpenFile", Environment.CurrentDirectory, "");
-            if (string.IsNullOrEmpty(path)) return;
+            string path = EditorUtility.OpenFilePanel("OpenFile", Environment.CurrentDirectory, "");
+            if (string.IsNullOrEmpty(path)) 
+                return;
             BuildScript.ViewVersions(path);
         }
 
@@ -128,6 +134,7 @@ namespace libx {
             ScreenCapture.CaptureScreenshot(path);
         }
 
+        // 将 .asset 文件 转换为 .json 文件
         [MenuItem("Assets/ToJson")]
         private static void ToJson() {
             var path = AssetDatabase.GetAssetPath(Selection.activeObject);
@@ -136,6 +143,7 @@ namespace libx {
             AssetDatabase.Refresh();
         }
 
+        // 拷贝路径
         [MenuItem("Assets/Copy Path")]
         private static void CopyPath() {
             var path = AssetDatabase.GetAssetPath(Selection.activeObject);
@@ -144,22 +152,22 @@ namespace libx {
 
         [MenuItem("Assets/GroupBy/None")]
         private static void GroupByNone() {
-            GroupAssets(GroupBy.None);
+            GenAssetBuildByMenuItem(GroupBy.None);
         }
 
         [MenuItem("Assets/GroupBy/Filename")]
         private static void GroupByFilename() {
-            GroupAssets(GroupBy.Filename);
+            GenAssetBuildByMenuItem(GroupBy.Filename);
         }
 
         [MenuItem("Assets/GroupBy/Directory")]
         private static void GroupByDirectory() {
-            GroupAssets(GroupBy.Directory);
+            GenAssetBuildByMenuItem(GroupBy.Directory);
         }
 
         [MenuItem("Assets/GroupBy/Explicit/shaders")]
         private static void GroupByExplicitShaders() {
-            GroupAssets(GroupBy.Explicit, "shaders");
+            GenAssetBuildByMenuItem(GroupBy.Explicit, "shaders");
         }
 
         [MenuItem("Assets/PatchBy/CurrentScene")]
@@ -176,17 +184,37 @@ namespace libx {
             AssetDatabase.SaveAssets();
         }
 
-        private static void GroupAssets(GroupBy nameBy, string bundle = null) {
-            var selection = Selection.GetFiltered<Object>(SelectionMode.DeepAssets);
-            var rules = BuildScript.GetBuildRules();
-            foreach (var o in selection) {
-                var path = AssetDatabase.GetAssetPath(o);
-                if (string.IsNullOrEmpty(path) || Directory.Exists(path)) continue;
-                rules.GroupAsset(path, nameBy, bundle);
+        // 生成 AssetBuild
+        private static void GenAssetBuildByMenuItem(GroupBy nameBy, string bundle = null) {
+            // 当前选择的 asset (可能有多个)
+            // 如果当前选择是 文件夹, 则会自动 获取 文件夹和 文件夹下的文件
+            Object[] selectionObjectArray = Selection.GetFiltered<Object>(SelectionMode.DeepAssets);
+
+            BuildRules buildRules = BuildScript.GetBuildRules();
+
+            foreach (Object o in selectionObjectArray) {
+                // e.g. Assets/XAsset/Demo/Test/TestPrefab/TestButton2.prefab
+                string path = AssetDatabase.GetAssetPath(o);
+                // 跳过空文件和文件夹
+                if (string.IsNullOrEmpty(path) || Directory.Exists(path))
+                    continue;
+                buildRules.GenAssetBuild(path, nameBy, bundle);
             }
 
-            EditorUtility.SetDirty(rules);
+            EditorUtility.SetDirty(buildRules);
             AssetDatabase.SaveAssets();
         }
+
+        [MenuItem("XASSET/Clear")]
+        // 清理数据
+        private static void Clear() {
+            // 清除 P 目录 下的 Versions.bundle
+            File.Delete(Assets.updatePath + "/" + Assets.VersionsFileName);
+            // PlayerPrefs 删除所有
+            PlayerPrefs.DeleteAll();
+            // PlayerPrefs 保存
+            PlayerPrefs.Save();
+        }
+
     }
 }

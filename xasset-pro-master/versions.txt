@@ -1,0 +1,24 @@
+ver:
+0.0.7
+activeVariants:
+
+dirs:
+Assets/XAsset/Demo/Scenes
+Assets/XAsset/Demo/UI/Prefabs
+assets:
+name=Title.unity, bundle=2, dir=0
+name=MessageBox.prefab, bundle=1, dir=1
+name=Level.unity, bundle=0, dir=0
+bundles:
+id=0, name=_level, len=111233, location=1, hash=b6abf6024a9e35e9b53a38f7ac0df8bb, crc=9246885a, children=3,7,8,9
+id=1, name=_messagebox, len=8584, location=1, hash=4d8bf90c1c48cafbd15556836e266d57, crc=be42cf27, children=4,6,8
+id=2, name=_title, len=13656, location=1, hash=ea95868401e8dfb5afd09f6cca020963, crc=ba8d133a, children=5,7,9
+id=3, name=children__level, len=24943, location=1, hash=8f1671e1d0119a628bb8e40ef07bcec0, crc=95366f24, children=9
+id=4, name=children__messagebox, len=644976, location=1, hash=faa276f0c063d597ab2785f067bd472c, crc=a777c366, children=6
+id=5, name=children__title, len=171684, location=1, hash=3f05cc78e4cef583f800579a22de1a85, crc=2b9becfb, children=7,9
+id=6, name=shaders, len=12677, location=1, hash=e8265ab9cd440082ff5456961b1f3ff0, crc=cc9898d6, children=
+id=7, name=shared_assets_xasset_demo_ui_sprites_backgrounds, len=599520, location=1, hash=cf02575bf1803a9dd3694fb0a560152e, crc=3c4ffabe, children=
+id=8, name=shared_assets_xasset_demo_ui_sprites_messagebox, len=18854, location=1, hash=2987eff9889bce58d31617aa31a0564e, crc=9b79c7cb, children=
+id=9, name=shared_assets_xasset_demo_ui_sprites_title, len=21848, location=1, hash=10bc14221a627f3105717be108375171, crc=0d40ca19, children=
+patches:
+name=Title, files=2,5,7,9,1,4,6,8,0,3

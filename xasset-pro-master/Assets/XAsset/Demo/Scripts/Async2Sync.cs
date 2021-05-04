@@ -2,6 +2,8 @@
 using UnityEngine;
 
 namespace libx {
+
+    // Async2Sync 场景使用
     public class Async2Sync : MonoBehaviour {
         List<AssetRequest> requests = new List<AssetRequest>();
 

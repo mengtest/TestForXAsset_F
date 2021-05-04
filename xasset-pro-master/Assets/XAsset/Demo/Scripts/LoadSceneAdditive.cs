@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 
 namespace libx {
+
+    // Additive 场景使用 
     public class LoadSceneAdditive : MonoBehaviour {
         public string scene;
         private void Update() {

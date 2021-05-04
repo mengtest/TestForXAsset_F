@@ -46,6 +46,15 @@ namespace libx {
         // 包含的 asset 的类型
         public Type assetType;
         // 请求的地址
+        // e.g. 
+        // SceneAssetRequest & SceneAssetAsyncRequest
+        //  Assets/XAsset/Demo/Scenes/Title.unity
+        //
+        // BundleRequest & BundleAsyncRequest
+        //  D:/Projects/UnityProjects/TestForXAsset5.1/xasset-pro-master/Assets/StreamingAssets/Bundles/_messagebox
+        // 
+        // BundleAssetRequest & BundleAssetAsyncRequest
+        //   Assets/XAsset/Demo/UI/Prefabs/MessageBox.prefab
         public string url;
 
         // 加载状态
@@ -86,6 +95,7 @@ namespace libx {
 
         public Object asset { get; internal set; }
 
+        // AssetRequest.Load()
         internal virtual void Load() {
             if (!File.Exists(url)) {
                 error = "error! file not exist:" + url;
@@ -101,6 +111,7 @@ namespace libx {
             loadState = LoadState.Loaded;
         }
 
+        // AssetRequest.Unload()
         internal virtual void Unload() {
             if (asset == null)
                 return;
@@ -112,6 +123,8 @@ namespace libx {
 
             asset = null;
             loadState = LoadState.Unload;
+
+            Debug.LogFormat("<color=red>AssetRequest.loadState = LoadState.Unload</color>:{0}", url);
         }
 
         // AssetRequest.Update()
@@ -177,22 +190,25 @@ namespace libx {
 
         // BundleAssetRequest.Load() (同步)
         internal override void Load() {
-            // 同步加载 asset 所在的 BundleRequest
+            // 1. 同步加载 asset 所在的 BundleRequest
             bundleRequest = Assets.LoadBundle(assetBundleName);
 
+            // 2. 同步加载 依赖 bundle
             string[] childBundleNameArray = Assets.GetChildrenBundleNameArray(assetBundleName);
             foreach (string childBundleName in childBundleNameArray) {
-                // 同步加载 依赖 bundle
                 children.Add(Assets.LoadBundle(childBundleName));
             }
 
-            // 依赖bundle 加载完了, 加载 bundle 里的资源
+            // 3. 从 asset 所在的 BundleRequest 的 assetBundle 里 加载 asset
             asset = bundleRequest.assetBundle.LoadAsset(url, assetType);
 
-            // BundleAssetRequest.loadState = LoadState.Loaded
+            // 4. 设置 BundleAssetRequest.loadState = LoadState.Loaded
             loadState = LoadState.Loaded;
+
+            Debug.LogFormat("<color=red>BundleAssetRequest.loadState = LoadState.Loaded</color>:{0}", name);
         }
 
+        // BundleAssetRequest.Unload()
         internal override void Unload() {
             if (bundleRequest != null) {
                 bundleRequest.Release();
@@ -206,6 +222,8 @@ namespace libx {
             children.Clear();
             asset = null;
             loadState = LoadState.Unload;
+
+            Debug.LogFormat("<color=red>BundleAssetRequest.loadState = LoadState.Unload</color>:{0}", url);
         }
     }
 
@@ -248,6 +266,7 @@ namespace libx {
             }
         }
 
+        // BundleAssetAsyncRequest.OnError()
         private bool OnError(AssetRequest request) {
             error = request.error;
             if (!string.IsNullOrEmpty(error)) {
@@ -257,6 +276,7 @@ namespace libx {
             return false;
         }
 
+        // BundleAssetAsyncRequest.Update()
         internal override bool Update() {
             if (!base.Update()) {
                 return false;
@@ -305,6 +325,7 @@ namespace libx {
             return true;
         }
 
+        // BundleAssetAsyncRequest.Load()
         internal override void Load() {
             bundleRequest = Assets.LoadBundleAsync(assetBundleName);
             var bundles = Assets.GetChildrenBundleNameArray(assetBundleName);
@@ -314,12 +335,17 @@ namespace libx {
             loadState = LoadState.Loading;
         }
 
+        // BundleAssetAsyncRequest.Unload()
         internal override void Unload() {
             _request = null;
             loadState = LoadState.Unload;
+
+            Debug.LogFormat("<color=red>BundleAssetAsyncRequest.loadState = LoadState.Unload</color>:{0}", url);
+
             base.Unload();
         }
 
+        // BundleAssetAsyncRequest.LoadImmediate()
         public override void LoadImmediate() {
             bundleRequest.LoadImmediate();
             foreach (var item in children) {
@@ -382,6 +408,7 @@ namespace libx {
 
                 }
             }
+
             loadState = LoadState.Loaded;
         }
 
@@ -418,8 +445,9 @@ namespace libx {
 
             bundleRequest = null;
 
-            // 
             loadState = LoadState.Unload;
+
+            Debug.LogFormat("<color=red>SceneAssetRequest.loadState = LoadState.Unload</color>:{0}", url);
         }
     }
 
@@ -464,6 +492,7 @@ namespace libx {
             }
         }
 
+        // SceneAssetAsyncRequest.OnError()
         private bool OnError(AssetRequest request) {
             error = request.error;
             if (!string.IsNullOrEmpty(error)) {
@@ -528,6 +557,9 @@ namespace libx {
 
                 // SceneAssetAsyncRequest.loadState = LoadState.Loaded
                 loadState = LoadState.Loaded;
+
+                Debug.LogFormat("<color=red>SceneAssetAsyncRequest.loadState = LoadState.Loaded</color>:{0}", name);
+
                 return false;
             }
 
@@ -560,6 +592,7 @@ namespace libx {
             if (!string.IsNullOrEmpty(assetBundleName)) {
                 // 加载场景所在的 Bundle
                 bundleRequest = Assets.LoadBundleAsync(assetBundleName);
+
                 // 获取 场景所在的 bundle 依赖的 bundle 名
                 string[] childBundleNameArray = Assets.GetChildrenBundleNameArray(assetBundleName);
 
@@ -607,6 +640,7 @@ namespace libx {
         }
 
 
+        // WebAsestRequest.Update()
         internal override bool Update() {
             if (!base.Update()) {
                 return false;
@@ -661,6 +695,7 @@ namespace libx {
             loadState = LoadState.Loading;
         }
 
+        // WebAssetRequest.Unload()
         internal override void Unload() {
             if (asset != null) {
                 Object.Destroy(asset);
@@ -673,6 +708,8 @@ namespace libx {
             bytes = null;
             text = null;
             loadState = LoadState.Unload;
+
+            Debug.LogFormat("<color=red>WebAssetRequest.loadState = LoadState.Unload</color>:{0}", url);
         }
     }
 
@@ -687,9 +724,11 @@ namespace libx {
         // BundleRequest.Load()
         internal override void Load() {
             // 官方API
+            // e.g. D:/Projects/UnityProjects/TestForXAsset5.1/xasset-pro-master/Assets/StreamingAssets/Bundles/_messagebox
             asset = AssetBundle.LoadFromFile(url);
             if (assetBundle == null)
                 error = url + " LoadFromFile failed.";
+
             // 同步加载， 这里就加载成功了
             loadState = LoadState.Loaded;
         }
@@ -703,6 +742,8 @@ namespace libx {
             assetBundle = null;
 
             loadState = LoadState.Unload;
+
+            Debug.LogFormat("<color=red>BundleRequest.loadState = LoadState.Unload</color>:{0}", url);
         }
     }
 
@@ -746,6 +787,9 @@ namespace libx {
 
                     // AssetBundle 加载完成
                     loadState = LoadState.Loaded;
+
+                    Debug.LogFormat("<color=red>BundleAsyncRequest.loadState = LoadState.Loaded</color>:{0}", url);
+
                     return false;
                 }
             }
@@ -770,9 +814,13 @@ namespace libx {
         internal override void Unload() {
             _assetBundleCreateRequest = null;
             loadState = LoadState.Unload;
+
+            Debug.LogFormat("<color=red>BundleAsyncRequest.loadState = LoadState.Unload</color>:{0}", url);
+
             base.Unload();
         }
 
+        // BundleAsyncRequest.LoadImmediate()
         public override void LoadImmediate() {
             Load();
             assetBundle = _assetBundleCreateRequest.assetBundle;
@@ -803,6 +851,7 @@ namespace libx {
             }
         }
 
+        // WebBundleRequest.Update()
         internal override bool Update() {
             if (!base.Update()) {
                 return false;
@@ -820,6 +869,8 @@ namespace libx {
                         error = "assetBundle = null";
                     }
                     loadState = LoadState.Loaded;
+
+                    Debug.LogFormat("<color=red>WebBundleRequest.loadState = LoadState.Loaded</color>:{0}", name);
                     return false;
                 }
             }
@@ -836,12 +887,16 @@ namespace libx {
             loadState = LoadState.Loading;
         }
 
+        // WebBundleRequest.Unlad()
         internal override void Unload() {
             if (_request != null) {
                 _request.Dispose();
                 _request = null;
             }
             loadState = LoadState.Unload;
+
+            Debug.LogFormat("<color=red>WebBundleRequest.loadState = LoadState.Unload</color>:{0}", url);
+
             base.Unload();
         }
     }

@@ -150,7 +150,6 @@ MonoBehaviour:
   launchScene: Title
   searchPaths:
   - Assets/XAsset/Demo/Scenes
-  - Assets/XAsset/Demo/UI/Prefabs
   patches4Init:
   - Title
   updateAll: 0

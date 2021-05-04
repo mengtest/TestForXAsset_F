@@ -38,7 +38,7 @@ namespace libx {
     // 运行时的 分包信息
     [Serializable]
     public class Patch {
-        public string name = string.Empty;  // 分包名字
+        public string name = string.Empty;  // 分包名字 e.g. Title
         public List<int> bundleIDList = new List<int>();    // 包含的 bundleID
 
         // 序列化 Patch
@@ -61,7 +61,7 @@ namespace libx {
         }
 
         public override string ToString() {
-            return string.Format("name={0}, files={1}", name, string.Join(",", bundleIDList.ConvertAll(input => input.ToString()).ToArray()));
+            return string.Format("name={0}, bundleIDList={1}", name, string.Join(",", bundleIDList.ConvertAll(input => input.ToString()).ToArray()));
         }
     }
 
@@ -90,6 +90,7 @@ namespace libx {
         }
     }
 
+    // Bundle 依赖
     [Serializable]
     public class BundleRef {
         public string name; // bundle名 e.g. assets_xasset_extend_testprefab1
@@ -103,10 +104,10 @@ namespace libx {
         // BundleRef.Equals()
         // 判断两个 BundleRef 是否相等
         public bool Equals(BundleRef other) {
-            return name == other.name &&
-                   len == other.len &&
-                   location == other.location &&
-                   crc.Equals(other.crc, StringComparison.OrdinalIgnoreCase);
+            return name == other.name &&    // 名字相同
+                   len == other.len &&  // 长度相同
+                   location == other.location &&    // location 相同
+                   crc.Equals(other.crc, StringComparison.OrdinalIgnoreCase);   // crc 相同
         }
 
         // 对比 BundleRef 的内容
@@ -169,6 +170,7 @@ namespace libx {
         public List<BundleRef> bundleRefList = new List<BundleRef>();
 
         // 包含的 Patch List
+        // e.g. [ "name=Title,bundleIDList=2,5,7,9,1,4,6,8,0,3" ]
         public List<Patch> patchList = new List<Patch>();
 
         // bundle名 和对应的 BundleRef
@@ -193,11 +195,11 @@ namespace libx {
         }
 
         // 是否包含 对应的 BundleRef
-        public bool Contains(BundleRef bundleRef) {
+        public bool Contains(BundleRef leftCompareBundleRef) {
             BundleRef tempBundleRef;
-            if (_bundleName2BundleRefDict.TryGetValue(bundleRef.name, out tempBundleRef)) {
+            if (_bundleName2BundleRefDict.TryGetValue(leftCompareBundleRef.name, out tempBundleRef)) {
                 // 两个 BundleRef 相等
-                if (tempBundleRef.Equals(bundleRef)) {
+                if (tempBundleRef.Equals(leftCompareBundleRef)) {
                     return true;
                 }
             }
@@ -215,20 +217,25 @@ namespace libx {
 
         // Versions.GetFiles
         // 通过分包名， 获取分包里的 BundleRef
-        public List<BundleRef> GetBundleRef(string patchName) {
-            List<BundleRef> bundleRefList = new List<BundleRef>();
+        public List<BundleRef> GetBundleRefByPatchName(string patchName) {
+            List<BundleRef> findedBundleRefList = new List<BundleRef>();
+
             Patch patch;
 
+            // 通过分包名 获取 分包
             if (_patchName2PatchDict.TryGetValue(patchName, out patch)) {
+                // 分包 包含的 bundleID
                 if (patch.bundleIDList.Count > 0) {
                     foreach (int bundleID in patch.bundleIDList) {
+                        // 通过 bundleID 获取 BundleRef
                         BundleRef bundleRef = this.bundleRefList[bundleID];
-                        bundleRefList.Add(bundleRef);
+
+                        findedBundleRefList.Add(bundleRef);
                     }
                 }
             }
 
-            return bundleRefList;
+            return findedBundleRefList;
         }
 
         // Versions.GetFilesInBuild()

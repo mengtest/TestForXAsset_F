@@ -63,6 +63,7 @@ namespace libx {
             return GetAsset<BuildRules>("Assets/Rules.asset");
         }
 
+        // 获取平台名
         internal static string GetPlatformName() {
             return GetPlatformForAssetBundles(EditorUserBuildSettings.activeBuildTarget);
         }
@@ -165,8 +166,9 @@ namespace libx {
             BuildVersions(assetBundleManifest, buildRules);
         }
 
+        // 生成 Versions
         private static void BuildVersions(AssetBundleManifest assetBundleManifest, BuildRules buidlRules) {
-            // 获取所有的 bundle名(官方API)
+            // 通过 AssetBundleManifest 获取所有的 bundle名(官方API)
             string[] allAssetBundleNameArray = assetBundleManifest.GetAllAssetBundles();
 
             // 获取 bundle名 和 bundle 对应的 索引

@@ -116,7 +116,7 @@ namespace libx {
                     }
                 }, "重试", "退出");
             } else {
-                // 先下载 Versions
+                // 1. 先下载 Versions
                 Assets.DownloadVersions(error => {
                     if (!string.IsNullOrEmpty(error)) {
                         MessageBox.Show("提示", string.Format("获取服务器版本失败：{0}", error), retry => {
@@ -129,9 +129,8 @@ namespace libx {
                     } else {
                         Downloader downloader;
 
-                        // 按分包下载版本更新，返回true的时候表示需要下载，false的时候，表示不需要下载
-                        // 下载需要的资源
-                        if (Assets.DownloadAll(Assets.patches4Init, out downloader)) {
+                        // 2. 下载 资源, 分包或者 全部
+                        if (Assets.DownloadPatchOrAll(Assets.patches4Init, out downloader)) {
                             var totalSize = downloader.size;
                             var tips = string.Format("发现内容更新，总计需要下载 {0} 内容", Downloader.GetDisplaySize(totalSize));
                             MessageBox.Show("提示", tips, download => {
@@ -163,17 +162,23 @@ namespace libx {
             OnProgress(1);
             version.text = Assets.currentVersions.ver;
             OnMessage("更新完成");
+
             StartCoroutine(EnterLevel());
         }
 
         // 进入 Level 场景（游戏场景）
         private IEnumerator EnterLevel() {
             yield return null;
+
             OnProgress(0);
+
             OnMessage("加载游戏场景");
-            var scene = Assets.LoadSceneAsync(R.GetScene("Level"));
-            while (!scene.isDone) {
-                OnProgress(scene.progress);
+
+            // 加载场景 Level
+            SceneAssetRequest sceneAssetRequest = Assets.LoadSceneAsync(R.GetScene("Level"));
+
+            while (!sceneAssetRequest.isDone) {
+                OnProgress(sceneAssetRequest.progress);
                 yield return null;
             }
         }

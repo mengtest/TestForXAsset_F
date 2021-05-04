@@ -33,9 +33,13 @@ namespace libx {
         //
         // SceneAssetRequest & SceneAssetAsyncRequest
         //  Assets/XAsset/Demo/Scenes/Title.unity
+        //
         // BundleRequest & BundleAsyncRequest
         //  children_title
         // 
+        // BundleAssetRequest & BundleAssetAsyncRequest
+        //   Assets/XAsset/Demo/UI/Prefabs/MessageBox.prefab
+
         public string name { get; set; }
 
         private List<Object> _requires = null;

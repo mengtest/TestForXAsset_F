@@ -33,6 +33,7 @@ using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 namespace libx {
+
     // MessageBox 也必须被包括在初始包内, 因为有些 MessageBox 出现的时间比 下载早
     public class MessageBox : IEnumerator {
         private static readonly List<MessageBox> _showed = new List<MessageBox>();
@@ -47,7 +48,8 @@ namespace libx {
 
         private MessageBox(string title, string content, Action<bool> completed, string ok, string no) {
             // 同步 加载 MessageBox.prefab
-            AssetRequest assetRequest = Assets.LoadAsset(R.GetPrefab("MessageBox"), typeof(GameObject));
+            AssetRequest assetRequest = Assets.LoadAsset(R.GetPrefab("Assets/XAsset/Demo/UI/Prefabs/MessageBox"), typeof(GameObject));
+
             gameObject = Object.Instantiate(assetRequest.asset) as GameObject;
             Assert.IsNotNull(gameObject, "gameObject != null");
             gameObject.name = title;
