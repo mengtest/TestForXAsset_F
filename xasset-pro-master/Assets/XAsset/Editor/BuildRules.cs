@@ -78,19 +78,19 @@ namespace libx {
 
     public class BuildRules : ScriptableObject {
         // [asset名, ...]
-        // 被多个 bundle 引用的 未设置过 bundle 的 asset
-        private readonly List<string> _duplicatedList = new List<string>();
+        // 被多个 bundle 引用的 未设置过 bundleName 的 asset
+        private readonly List<string> _duplicatedAssetList = new List<string>();
 
         // [asset名, HashSet<bundle名(可能有多个)>]
         // 主要用来计算 _unexplicitDict, _duplicatedList
         // asset 和 所属的 bundle(可能有多个)
         // 如果一个asset没有设置bundle且被多个bundle引用，那这个 asset 就会被加入到 _duplicated
-        private readonly Dictionary<string, HashSet<string>> _trackerDict = new Dictionary<string, HashSet<string>>();
+        private readonly Dictionary<string, HashSet<string>> _asset2BundleHashSetDict = new Dictionary<string, HashSet<string>>();
 
         // 通过AssetBuild 转化得到
         //
         // [asset名, bundle名]
-        // e.g. 普通的 asset->bundle
+        // e.g. 一个 asset 一个
         // [Assets/XAsset/Extend/TestImage/Btn_Tab1_n 1.png, assets_xasset_extend_testimage]
         // e.g. 单个 bundle 依赖的 的没有  bundle 的 asset
         // [Assets/XAsset/Extend/TestCommon/Btn_User_h 2.png, children_assets_xasset_extend_testprefab3]
@@ -102,7 +102,7 @@ namespace libx {
         // 通过分析依赖查找出来的没有显式设置 bundle 名的资源
         // bundle 名 为最后分析的那一个
         // // e.g. [Assets/XAsset/Extend/TestCommon/Btn_User_h 1.png, children_assets_extend_testprefab"]
-        private readonly Dictionary<string, string> _unexplicitDict = new Dictionary<string, string>();
+        private readonly Dictionary<string, string> _unexplicitAsset2BundleDict = new Dictionary<string, string>();
 
         [Header("版本号")]
         // 
@@ -289,8 +289,8 @@ namespace libx {
         public void Analyze() {
             // 清空 _unexplicits, _tracker, _duplicated, _asset2BundleDict
             Clear();
-            // 收集 {BuildRule} 下的 asset
-            CollectAssets();
+            // 为 Rules.asset 下的 每个 AssetBuild 添加 BundleName,并转为换 Asset2BundleDict  里的记录 
+            AddBundleNameToAssetBuildAndConvertToAsset2BundleDict();
             // 获取依赖, 分析出  _tracker, _unexplicits, _duplicated
             AnalysisAssets();
             // 优化资源
@@ -313,7 +313,9 @@ namespace libx {
         #region Private
 
         private string GetGroupNameByAssetBuild(AssetBuild assetBuild) {
-            return GetGroupName(assetBuild.groupBy, assetBuild.assetName, assetBuild.groupName);
+            // isChildren = false
+            // isShared = false
+            return GetGroupName(assetBuild.groupBy, assetBuild.assetName, assetBuild.groupName, isChildren: false, isShared: false);
         }
 
         // 检查是否是符合规则的文件
@@ -339,12 +341,13 @@ namespace libx {
 
         // 获取文件的分组名
         private string GetGroupName(GroupBy groupBy, string assetName, string groupName = null, bool isChildren = false, bool isShared = false) {
-            // 特殊处理 shader 的 组名  固定为 shaders
+            // 特殊处理 shader 的 groupBy 为 GroupBy.Explicit
+            // 特殊处理 shader 的 groupName  固定为 shaders
             if (assetName.EndsWith(".shader")) {
                 groupName = "shaders";
                 groupBy = GroupBy.Explicit;
                 isChildren = false;
-            // 特殊处理 场景的 组名
+            // 特殊处理 场景的 groupBy 为 GroupBy.Filename
             } else if (IsScene(assetName)) {
                 groupBy = GroupBy.Filename;
             }
@@ -352,18 +355,21 @@ namespace libx {
             switch (groupBy) {
                 case GroupBy.Explicit:
                     break;
+                // 只会得到 形如 _Title 的 groupName
                 case GroupBy.Filename: {
-                        // 
+                        // 只获取 文件名 e.g. Title
                         string assetNameNoExt = Path.GetFileNameWithoutExtension(assetName);
+                        // 永远是 ""
                         string directoryName = Path.GetDirectoryName(assetNameNoExt).Replace("\\", "/").Replace("/", "_");
-                        // groupName 通过 组合得到
+                        // groupName 通过 组合得到 e.g. _Title
                         groupName = directoryName + "_" + assetNameNoExt;
                     }
                     break;
-                // 将 asset 以 文件夹的方式打包为 bundle
+                // 这里只会得到 形如 Assets_XAsset_Demo_UI_Sprites_Title 的 groupName
                 case GroupBy.Directory: {
-                        // assetName    e.g. Assets/XAsset/Extend/TestImage/Btn_Tab1_n 1.png
-                        // directoryName    e.g. Assets_XAsset_Extend_TestImage
+                        // 将 路径中的 \\,/ 转换为 _
+                        // e.g. Assets/XAsset/Demo/UI/Sprites/Title/Progress1.png
+                        //      Assets_XAsset_Demo_UI_Sprites_Title
                         string directoryName = Path.GetDirectoryName(assetName).Replace("\\", "/").Replace("/", "_");
                         // groupName 是 文件夹名
                         groupName = directoryName;
@@ -371,12 +377,12 @@ namespace libx {
                     }
             }
 
-            // 没有
-
+            // 只被单个 bundle 引用
             if (isChildren) {
                 return "children_" + groupName;
             }
 
+            // 被多个 bundle 引用
             if (isShared) {
                 groupName = "shared_" + groupName;
             }
@@ -390,15 +396,15 @@ namespace libx {
         // 添加 _unexplicits 记录
         // 添加 _duplicated 记录
         private void Track(string dependencyAssetName, string bundleName) {
-            HashSet<string> hashSet;
+            HashSet<string> bundleNameHashSet;
 
-            if (!_trackerDict.TryGetValue(dependencyAssetName, out hashSet)) {
-                hashSet = new HashSet<string>();
-                _trackerDict.Add(dependencyAssetName, hashSet);
+            if (!_asset2BundleHashSetDict.TryGetValue(dependencyAssetName, out bundleNameHashSet)) {
+                bundleNameHashSet = new HashSet<string>();
+                _asset2BundleHashSetDict.Add(dependencyAssetName, bundleNameHashSet);
             }
 
             // 同一个资源可能被多个
-            hashSet.Add(bundleName);
+            bundleNameHashSet.Add(bundleName);
 
             // 在 Asset2BundleDict 中 查找 asset 对应的 bundle
             string findedBundleNameInAsset2BundleDict;
@@ -410,26 +416,28 @@ namespace libx {
                 // e.g. [Assets/XAsset/Extend/TestCommon/Btn_User_h 1.png, children_assets_extend_testprefab"]
                 // groupName = bundleName
                 //
-                // [isChildren = true] 
+                // isChildren = true
+                // isShared = false
                 // 
                 // 情况1. assetName 只被一处引用,
                 //  1. A 依赖 assetName 且 assetName 没有 对应的 bundleName, bundleName = A, groupName = children_A
-                // 
+                //  只被一处引用的情况 不会在 OptimizeAsset 中处理 
+                //
                 // 情况2. assetName 被多处引用,按照分析的顺序
                 //  1. A 依赖 assetName 且 assetName 没有 对应的 bundleName, bundleName = A, groupName = children_A
-                //  2. B 依赖 assetName 且 assetName 没有 对应的 bundleName, bundleName = B, groupName = children_B (覆盖了上一条)
+                //  2. B 依赖 assetName 且 assetName 没有 对应的 bundleName, bundleName = B, groupName = children_B (覆盖了上一条, 且这个名字只是暂时的)
                 //  覆盖的情况 会在 OptimizeAsset 中处理
-                _unexplicitDict[dependencyAssetName] = GetGroupName(GroupBy.Explicit, dependencyAssetName, bundleName, true);
+                _unexplicitAsset2BundleDict[dependencyAssetName] = GetGroupName(GroupBy.Explicit, dependencyAssetName, bundleName, isChildren: true, isShared: false);
 
-                // 同一个资源被多个不同的 bundle 引用, 添加到 _duplicatedList
-                if (hashSet.Count > 1) {
-                    _duplicatedList.Add(dependencyAssetName);
+                // 同一个资源被多个不同的 未显式设置bundleName 的 bundle 引用, 添加到 _duplicatedList
+                if (bundleNameHashSet.Count > 1) {
+                    _duplicatedAssetList.Add(dependencyAssetName);
                 }
             }
         }
 
         // 将 assetName 和 assetBundleName 的 对应关系 存储到 _asset2Bundles
-        private void BundleAsset(string assetName, string assetBundleName) {
+        private void ConvertAssetBuildToAsset2BundleDict(string assetName, string assetBundleName) {
             // 如果 是场景文件, 要重新
             if (IsScene(assetName)) {
                 assetBundleName = GetGroupNameByAssetBuild(
@@ -444,28 +452,29 @@ namespace libx {
         }
 
         private void Clear() {
-            _unexplicitDict.Clear();
-            _trackerDict.Clear();
-            _duplicatedList.Clear();
+            _unexplicitAsset2BundleDict.Clear();
+            _asset2BundleHashSetDict.Clear();
+            _duplicatedAssetList.Clear();
             _asset2BundleDict.Clear();
         }
 
         // 将 一对一的  [assetName, bundleName] 转化为 [bundleName, List<assetName>]
-        private Dictionary<string, List<string>> GetBundle2AssetListDict() {
+        private Dictionary<string, List<string>> GetBundle2AssetListDictFromAsset2BundleDict() {
             Dictionary<string, List<string>> bundle2AssetListDict = new Dictionary<string, List<string>>();
 
             foreach (KeyValuePair<string, string> item in _asset2BundleDict) {
-                string bundle = item.Value;
-                List<string> list;
+                string bundleName = item.Value;
+                List<string> assetNamelist;
 
-                if (!bundle2AssetListDict.TryGetValue(bundle, out list)) {
-                    list = new List<string>();
-                    bundle2AssetListDict[bundle] = list;
+                if (!bundle2AssetListDict.TryGetValue(bundleName, out assetNamelist)) {
+                    assetNamelist = new List<string>();
+                    bundle2AssetListDict[bundleName] = assetNamelist;
                 }
 
-                if (!list.Contains(item.Key))
-                    list.Add(item.Key);
+                if (!assetNamelist.Contains(item.Key))
+                    assetNamelist.Add(item.Key);
             }
+
             return bundle2AssetListDict;
         }
 
@@ -473,7 +482,7 @@ namespace libx {
         private void Save() {
             bundleBuildList.Clear();
 
-            Dictionary<string, List<string>> bundle2AssetListDict = GetBundle2AssetListDict();
+            Dictionary<string, List<string>> bundle2AssetListDict = GetBundle2AssetListDictFromAsset2BundleDict();
 
             // 重新生成  Rules.asset 中的 BundleBuild
             foreach (KeyValuePair<string, List<string>> item in bundle2AssetListDict) {
@@ -502,14 +511,14 @@ namespace libx {
             AssetDatabase.SaveAssets();
         }
 
-        // 通过 BuildRule 获得需要打包的文件路径和该文件所属的assetbundle的名称 将其转化为 AssetBuild
-        private void CollectAssets() {
-            List<AssetBuild> assetBuildListTemp = new List<AssetBuild>();
+        // 为 Rules.asset 下的 每个 AssetBuild 添加 BundleName,并转为换 Asset2BundleDict  里的记录
+        private void AddBundleNameToAssetBuildAndConvertToAsset2BundleDict() {
+            List<AssetBuild> assetBuildListWillAddBundleName = new List<AssetBuild>();
 
             // D:\\Projects\\UnityProjects\\TestForXAsset5.1\\xasset-pro-master
             int len = Environment.CurrentDirectory.Length + 1;
 
-            // 读取 Rules.asset 里的 AssetBuildList
+            // 处理路径大小写问题
             for (int index = 0; index < this.assetBuildList.Count; index++) {
                 AssetBuild assetBuild = this.assetBuildList[index];
                 // 通过 文件名  读取文件信息
@@ -519,41 +528,45 @@ namespace libx {
                 if (fileInfo.Exists && ValidateAsset(assetBuild.assetName)) {
                     // FullName e.g. D:\\Projects\\UnityProjects\\TestForXAsset5.1\\xasset-pro-master\\Assets\\XAsset\\Extend\\TestImage\\Btn_Tab1_n 1.png
                     // relativePath e.g. Assets/XAsset/Extend/TestImage/Btn_Tab1_n 1.png
+                    // 转换为 能识别的相对路径
                     string relativePath = fileInfo.FullName.Substring(len).Replace("\\", "/");
 
                     if (!relativePath.Equals(assetBuild.assetName)) {
                         Debug.LogWarningFormat("检查到路径大小写不匹配！输入：{0}实际：{1}，已经自动修复。", assetBuild.assetName, relativePath);
                         assetBuild.assetName = relativePath;
                     }
-                    // 添加到 局部的 AssetBuildList
-                    assetBuildListTemp.Add(assetBuild);
+                    
+                    assetBuildListWillAddBundleName.Add(assetBuild);
                 }
             }
 
-            // 处理局部的 AssetBuildList
-            for (int i = 0; i < assetBuildListTemp.Count; i++) {
+            // 给 AssetBuild 添加 bundleName
+            for (int i = 0; i < assetBuildListWillAddBundleName.Count; i++) {
 
-                AssetBuild assetBuild = assetBuildListTemp[i];
+                AssetBuild assetBuild = assetBuildListWillAddBundleName[i];
 
-                // 跳过 GroupBy.None, 这里暂不处理 GroupBy.None 的情况
+                // 不给 GroupBy.None 的 AssetBuild 添加 bundleName
                 if (assetBuild.groupBy == GroupBy.None) {
                     continue;
                 }
 
                 // 获取 asset 的 GroupName, 设置为 AssetBuild.bundleName
                 assetBuild.bundleName = GetGroupNameByAssetBuild(assetBuild);
+
+
                 // 将 assetName 和 assetBundleName 的 对应关系 存储到 _asset2Bundles
-                BundleAsset(assetBuild.assetName, assetBuild.bundleName);
+                ConvertAssetBuildToAsset2BundleDict(assetBuild.assetName, assetBuild.bundleName);
             }
 
-            // 局部 AssetBuildList 赋值给 AssetBuildList
-            this.assetBuildList = assetBuildListTemp;
+
+            // assetBuildListWillAddAssetNameAndBundleName 赋值给 AssetBuildList
+            this.assetBuildList = assetBuildListWillAddBundleName;
         }
 
         // 分析
         private void AnalysisAssets() {
             // 获取 [bundleName, List<assetName>]
-            Dictionary<string, List<string>> bundle2AssetDict = GetBundle2AssetListDict();
+            Dictionary<string, List<string>> bundle2AssetDict = GetBundle2AssetListDictFromAsset2BundleDict();
 
             int i = 0;
             foreach (KeyValuePair<string, List<string>> item in bundle2AssetDict) {
@@ -564,7 +577,7 @@ namespace libx {
                 if (EditorUtility.DisplayCancelableProgressBar(tips, bundleName, i / (float)bundle2AssetDict.Count))
                     break;
 
-                // 获取 一个 bundle
+                // 获取 一个 bundle 里的 所有 assetName
                 // [assetName, ...]
                 string[] assetPaths = item.Value.ToArray();
 
@@ -593,37 +606,41 @@ namespace libx {
         // 优化多个文件
         private void OptimizeAssetsFromUnexplicitDict() {
 
-            foreach (KeyValuePair<string, string> item in _unexplicitDict) {
-                // 查找 _tracker 里的 asset 只属于一个 bundle, 添加到 _asset2BundleDict
+            // 只在 未显式设置 bundleName 的字典里查找
+            foreach (KeyValuePair<string, string> item in _unexplicitAsset2BundleDict) {
+                // 查找 _asset2BundleHashSetDict 里的 asset 只属于一个 bundle, 添加到 _asset2BundleDict
                 // e.g. [Assets/XAsset/Extend/TestCommon/Btn_User_h 2.png, children_assets_xasset_extend_testprefab3]
-                if (_trackerDict[item.Key].Count < 2) {
+                if (_asset2BundleHashSetDict[item.Key].Count < 2) {
                     _asset2BundleDict[item.Key] = item.Value;
                 }
             }
 
             // 从这里开始 _trackerDict 就没有用了, 可以清掉. add by 黄鑫
-            _trackerDict.Clear();
+            _asset2BundleHashSetDict.Clear();
             // 从这里开始 _unexplicitDict 就没有用过了, 可以清掉. add by 黄鑫
-            _unexplicitDict.Clear();
+            _unexplicitAsset2BundleDict.Clear();
 
-            for (int i = 0, max = _duplicatedList.Count; i < max; i++) {
-                var item = _duplicatedList[i];
-                if (EditorUtility.DisplayCancelableProgressBar(string.Format("优化冗余{0}/{1}", i, max), item,
+
+            for (int i = 0, max = _duplicatedAssetList.Count; i < max; i++) {
+                string assetName = _duplicatedAssetList[i];
+                if (EditorUtility.DisplayCancelableProgressBar(string.Format("优化冗余{0}/{1}", i, max), assetName,
                     i / (float)max)) break;
+
                 // 优化被多个bundle 引用的 未设置过 bundle 的 asset
-                OptimizeAsset(item);
+                GenSharedBundleByDirectoryName(assetName);
             }
 
             // 从这里开始 _duplicatedList 就没有用过了, 可以清掉. add by 黄鑫
-            _duplicatedList.Clear();
+            _duplicatedAssetList.Clear();
         }
 
         // 优化被多个bundle 引用的 未设置过 bundle 的 asset
-        private void OptimizeAsset(string assetName) {
+        private void GenSharedBundleByDirectoryName(string assetName) {
             // 添加到 _asset2BundleDict
+            // isChildren = false
             // isShared = true
             // e.g. [Assets/XAsset/Extend/TestCommon/Btn_User_h 1.png, shared_assets_xasset_extend_testcommon]
-            _asset2BundleDict[assetName] = GetGroupName(GroupBy.Directory, assetName, null, false, true);
+            _asset2BundleDict[assetName] = GetGroupName(GroupBy.Directory, assetName, null, isChildren: false, isShared: true);
         }
 
         #endregion

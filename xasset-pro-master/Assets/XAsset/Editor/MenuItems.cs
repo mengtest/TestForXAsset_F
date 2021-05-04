@@ -150,21 +150,25 @@ namespace libx {
             EditorGUIUtility.systemCopyBuffer = path;
         }
 
+        // 生成一个(或多个) GroupBy.None 的 AssetBuild, bundleName = null
         [MenuItem("Assets/GroupBy/None")]
         private static void GroupByNone() {
             GenAssetBuildByMenuItem(GroupBy.None);
         }
 
+        // 生成一个(或多个) GroupBy.Filename 的 AssetBuild, bundleName = null
         [MenuItem("Assets/GroupBy/Filename")]
         private static void GroupByFilename() {
             GenAssetBuildByMenuItem(GroupBy.Filename);
         }
 
+        // 生成一个(或多个) GroupBy.Directory 的 AssetBuild, bundleName = null
         [MenuItem("Assets/GroupBy/Directory")]
         private static void GroupByDirectory() {
             GenAssetBuildByMenuItem(GroupBy.Directory);
         }
 
+        // 生成一个(或多个) GroupBy.Explicit 的 AssetBuild, bundleName = shader
         [MenuItem("Assets/GroupBy/Explicit/shaders")]
         private static void GroupByExplicitShaders() {
             GenAssetBuildByMenuItem(GroupBy.Explicit, "shaders");
@@ -185,7 +189,7 @@ namespace libx {
         }
 
         // 生成 AssetBuild
-        private static void GenAssetBuildByMenuItem(GroupBy nameBy, string bundle = null) {
+        private static void GenAssetBuildByMenuItem(GroupBy nameBy, string bundleName = null) {
             // 当前选择的 asset (可能有多个)
             // 如果当前选择是 文件夹, 则会自动 获取 文件夹和 文件夹下的文件
             Object[] selectionObjectArray = Selection.GetFiltered<Object>(SelectionMode.DeepAssets);
@@ -198,7 +202,8 @@ namespace libx {
                 // 跳过空文件和文件夹
                 if (string.IsNullOrEmpty(path) || Directory.Exists(path))
                     continue;
-                buildRules.GenAssetBuild(path, nameBy, bundle);
+
+                buildRules.GenAssetBuild(path, nameBy, bundleName);
             }
 
             EditorUtility.SetDirty(buildRules);

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 03142c330ced64e0ab46cddcd0484ab7, type: 3}
   m_Name: Rules
   m_EditorClassIdentifier: 
-  build: 6
+  build: 7
   major: 0
   minor: 0
   scenesFolders:
@@ -73,6 +73,11 @@ MonoBehaviour:
     bundleName: 
     id: 0
     groupBy: 0
+  - assetName: Assets/XAsset/Demo/Test/TestShader/SimpleGrabPassBlur 1.shader
+    groupName: shaders
+    bundleName: shaders
+    id: 0
+    groupBy: 1
   patchBuildList:
   - name: Title
     assetNameList:
@@ -113,6 +118,10 @@ MonoBehaviour:
   - assetBundleName: _childrens
     assetNames:
     - Assets/XAsset/Demo/Scenes/Childrens.unity
+  - assetBundleName: shaders
+    assetNames:
+    - Assets/XAsset/Demo/Test/TestShader/SimpleGrabPassBlur 1.shader
+    - Assets/XAsset/Demo/Shaders/SimpleGrabPassBlur.shader
   - assetBundleName: children__title
     assetNames:
     - Assets/XAsset/Demo/UI/Sprites/Title/Title2_bg.png
@@ -131,9 +140,6 @@ MonoBehaviour:
     - Assets/XAsset/Demo/UI/Sprites/MessageBox/TitleLine_Right.png
     - Assets/XAsset/Demo/UI/Animations/MessageBox.anim
     - Assets/XAsset/Demo/UI/Sprites/Backgrounds/bg_black.png
-  - assetBundleName: shaders
-    assetNames:
-    - Assets/XAsset/Demo/Shaders/SimpleGrabPassBlur.shader
   - assetBundleName: children__level
     assetNames:
     - Assets/XAsset/Demo/UI/Prefabs/LevelScreen.prefab
