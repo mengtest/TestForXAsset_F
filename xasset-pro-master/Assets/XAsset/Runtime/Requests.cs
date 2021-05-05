@@ -124,7 +124,7 @@ namespace libx {
             asset = null;
             loadState = LoadState.Unload;
 
-            Debug.LogFormat("<color=red>AssetRequest.loadState = LoadState.Unload</color>:{0}", url);
+            // Debug.LogFormat("<color=red>AssetRequest.loadState = LoadState.Unload</color>:{0}", url);
         }
 
         // AssetRequest.Update()
@@ -447,7 +447,7 @@ namespace libx {
 
             loadState = LoadState.Unload;
 
-            Debug.LogFormat("<color=red>SceneAssetRequest.loadState = LoadState.Unload</color>:{0}", url);
+            // Debug.LogFormat("<color=red>SceneAssetRequest.loadState = LoadState.Unload</color>:{0}", url);
         }
     }
 
@@ -558,7 +558,7 @@ namespace libx {
                 // SceneAssetAsyncRequest.loadState = LoadState.Loaded
                 loadState = LoadState.Loaded;
 
-                Debug.LogFormat("<color=red>SceneAssetAsyncRequest.loadState = LoadState.Loaded</color>:{0}", name);
+                // Debug.LogFormat("<color=red>SceneAssetAsyncRequest.loadState = LoadState.Loaded</color>:{0}", name);
 
                 return false;
             }
@@ -743,7 +743,7 @@ namespace libx {
 
             loadState = LoadState.Unload;
 
-            Debug.LogFormat("<color=red>BundleRequest.loadState = LoadState.Unload</color>:{0}", url);
+            // Debug.LogFormat("<color=red>BundleRequest.loadState = LoadState.Unload</color>:{0}", url);
         }
     }
 
@@ -788,7 +788,7 @@ namespace libx {
                     // AssetBundle 加载完成
                     loadState = LoadState.Loaded;
 
-                    Debug.LogFormat("<color=red>BundleAsyncRequest.loadState = LoadState.Loaded</color>:{0}", url);
+                    // Debug.LogFormat("<color=red>BundleAsyncRequest.loadState = LoadState.Loaded</color>:{0}", url);
 
                     return false;
                 }
@@ -815,7 +815,7 @@ namespace libx {
             _assetBundleCreateRequest = null;
             loadState = LoadState.Unload;
 
-            Debug.LogFormat("<color=red>BundleAsyncRequest.loadState = LoadState.Unload</color>:{0}", url);
+            // Debug.LogFormat("<color=red>BundleAsyncRequest.loadState = LoadState.Unload</color>:{0}", url);
 
             base.Unload();
         }

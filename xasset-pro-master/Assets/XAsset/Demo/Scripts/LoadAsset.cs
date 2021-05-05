@@ -19,6 +19,7 @@ namespace libx {
                 assetRequest.completed += delegate {
 
                     GameObject go = Instantiate(assetRequest.asset) as GameObject;
+
                     if (go != null) {
                         go.name = assetRequest.asset.name;
                         var holder = go.GetComponent<ObjectHolder>();

@@ -53,6 +53,7 @@ namespace libx {
         }
 
         private void OnReachablityChanged(NetworkReachability reachability) {
+            // 手机上关闭 wifi 和 4g
             if (reachability == NetworkReachability.NotReachable) {
                 OnMessage("网络错误");
             }
@@ -131,7 +132,7 @@ namespace libx {
 
                         // 2. 下载 资源, 分包或者 全部
                         if (Assets.DownloadPatchOrAll(Assets.patches4Init, out downloader)) {
-                            var totalSize = downloader.size;
+                            var totalSize = downloader.totalDownloadSize;
                             var tips = string.Format("发现内容更新，总计需要下载 {0} 内容", Downloader.GetDisplaySize(totalSize));
                             MessageBox.Show("提示", tips, download => {
                                 if (download) {

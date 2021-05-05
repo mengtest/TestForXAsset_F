@@ -97,8 +97,8 @@ namespace libx {
 
         private static string[] GetLevelsFromBuildSettings() {
             List<string> scenes = new List<string>();
-            foreach (var item in GetBuildRules().scenesInBuild) {
-                var path = AssetDatabase.GetAssetPath(item);
+            foreach (SceneAsset sceneAsset in GetBuildRules().scenesInBuild) {
+                string path = AssetDatabase.GetAssetPath(sceneAsset);
                 if (!string.IsNullOrEmpty(path)) {
                     scenes.Add(path);
                 }

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 03142c330ced64e0ab46cddcd0484ab7, type: 3}
   m_Name: Rules
   m_EditorClassIdentifier: 
-  build: 7
+  build: 11
   major: 0
   minor: 0
   scenesFolders:
@@ -63,16 +63,6 @@ MonoBehaviour:
     bundleName: _childrens
     id: 0
     groupBy: 2
-  - assetName: Assets/XAsset/Demo/Test/TestPrefab/TestButton2.prefab
-    groupName: 
-    bundleName: 
-    id: 0
-    groupBy: 0
-  - assetName: Assets/XAsset/Demo/Test/TestPrefab/TestButton1.prefab
-    groupName: 
-    bundleName: 
-    id: 0
-    groupBy: 0
   - assetName: Assets/XAsset/Demo/Test/TestShader/SimpleGrabPassBlur 1.shader
     groupName: shaders
     bundleName: shaders
@@ -84,6 +74,7 @@ MonoBehaviour:
     - Assets/XAsset/Demo/Scenes/Title.unity
     - Assets/XAsset/Demo/UI/Prefabs/MessageBox.prefab
     - Assets/XAsset/Demo/Scenes/Level.unity
+    - Assets/XAsset/Demo/Test/Test.dll
   - name: Additive
     assetNameList:
     - Assets/XAsset/Demo/Scenes/Additive.unity

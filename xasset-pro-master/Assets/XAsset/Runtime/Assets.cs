@@ -360,17 +360,22 @@ namespace libx {
             }
 
             if (willDownloadBundleList.Count > 0) {
-                var downloader = new Downloader();
-                foreach (var item in willDownloadBundleList)
-                    downloader.AddDownload(GetDownloadURL(item.name), updatePath + item.name, item.crc, item.len);
-                Downloaders.Add(downloader);
+                Downloader downloader = new Downloader();
+
+                foreach (BundleRef bundleRef in willDownloadBundleList)
+                    downloader.AddDownload(GetDownloadURL(bundleRef.name), updatePath + bundleRef.name, bundleRef.crc, bundleRef.len);
+
+                DownloaderList.Add(downloader);
+
                 downLoader = downloader;
+
                 downLoader.onFinished += () => {
-                    foreach (var item in patchNameArray) {
+                    foreach (string patchName in patchNameArray) {
                         // 保存分包的版本号
-                        PlayerPrefs.SetString(item, currentVersions.ver);
+                        PlayerPrefs.SetString(patchName, currentVersions.ver);
                     }
                 };
+
                 return true;
             }
 
@@ -396,7 +401,7 @@ namespace libx {
                 Downloader tempDownloader = new Downloader();
                 foreach (var item in bundleRefList)
                     tempDownloader.AddDownload(GetDownloadURL(item.name), updatePath + item.name, item.crc, item.len);
-                Downloaders.Add(tempDownloader);
+                DownloaderList.Add(tempDownloader);
                 downloader = tempDownloader;
                 return true;
             }
@@ -405,14 +410,18 @@ namespace libx {
             return false;
         }
 
+        // Assets.Pause()
         public static void Pause() {
-            foreach (var downloader in Downloaders)
+            foreach (Downloader downloader in DownloaderList) {
                 downloader.Pause();
+            }
         }
 
+        // Assets.UnPause()
         public static void UnPause() {
-            foreach (var downloader in Downloaders)
+            foreach (var downloader in DownloaderList) {
                 downloader.UnPause();
+            }
         }
 
         // 加载场景 (异步）, 传入的只是场景的名字
@@ -506,43 +515,55 @@ namespace libx {
         public static Versions currentVersions { get; private set; }
 
 
-        // Bundle 需要更新吗
+        // BundleRef 是否有改动
         private static bool IsNewBundleRef(BundleRef bundleRef) {
             if (updatePathVersions != null)
                 // S 目录 内 是否包含 这个 bunlde
                 if (updatePathVersions.Contains(bundleRef))
                     return false;
 
-            string path = string.Format("{0}{1}", updatePath, bundleRef.name);
-            FileInfo fileInfo = new FileInfo(path);
+            // 获取已经下载的 BundleRef 的路径
+            string oldBundleRefPath = string.Format("{0}{1}", updatePath, bundleRef.name);
+
+            FileInfo fileInfo = new FileInfo(oldBundleRefPath);
             // 不存在这个文件, 直接 true
             if (!fileInfo.Exists)
                 return true;
 
+            // 把所有的 BundleRef.crc 存在 PlayerPrefs 里 导致项太多, 我不太适应
+            // 注释掉这种方法, 转而使用下面的 读取文件 crc 的方法, 如果后续由需要，可以启用
+            // 黄鑫 2021年5月5日
+            //
             // 直接读取 PlayerPrefs 中保存的内容，该值在 Download.Copy 方法中写入
-            var comparison = StringComparison.OrdinalIgnoreCase;
-            string ver = PlayerPrefs.GetString(path);
-            if (ver.Equals(bundleRef.crc, comparison)) {
+            // 方法 1
+            StringComparison stringComparison = StringComparison.OrdinalIgnoreCase;
+            string oldBundleRefCRC = PlayerPrefs.GetString(oldBundleRefPath);
+            if (oldBundleRefCRC.Equals(bundleRef.crc, stringComparison)) {
                 return false;
             }
-
             return true;
 
-            //var comparison = StringComparison.OrdinalIgnoreCase;
-            //using (var stream = File.OpenRead(path)) {
-            //    if (stream.Length != bundle.len)
+            //// 方法 2
+            //StringComparison stringComparison = StringComparison.OrdinalIgnoreCase;
+            //using (FileStream oldBundleRefFileStream = File.OpenRead(oldBundleRefPath)) {
+            //    // 对比文件长度
+            //    if (oldBundleRefFileStream.Length != bundleRef.len)
             //        return true;
+
             //    if (verifyBy != VerifyBy.CRC)
             //        return false;
-            //    var crc = Utility.GetCRC32Hash(stream);
-            //    return !crc.Equals(bundle.crc, comparison);
+
+            //    string oldBundleRefCRC = Utility.GetCRC32Hash(oldBundleRefFileStream);
+
+            //    // 对比 crc
+            //    return !oldBundleRefCRC.Equals(bundleRef.crc, stringComparison);
             //}
         }
 
         // Assets.GetNewBundleRef()
         // 获取新Bundle
         private static List<BundleRef> GetNewBundleRef(string patchName) {
-            List<BundleRef> bundleRefList = new List<BundleRef>();
+            List<BundleRef> newBundleRefList = new List<BundleRef>();
 
             // 查找 当前 版本中 分包的 bundle
             // 
@@ -550,12 +571,13 @@ namespace libx {
 
             // 遍历 分包中的 bundle
             foreach (BundleRef bundleRef in findedBundleRefList) {
+                // 判断 每个 BundleRef 是不是新的
                 if (IsNewBundleRef(bundleRef)) {
-                    bundleRefList.Add(bundleRef);
+                    newBundleRefList.Add(bundleRef);
                 }
             }
 
-            return bundleRefList;
+            return newBundleRefList;
         }
 
         private static string GetPlatformForAssetBundles(RuntimePlatform target) {
@@ -587,8 +609,8 @@ namespace libx {
         }
 
 
-
-        private static readonly List<Downloader> Downloaders = new List<Downloader>();
+        // 所有的 Downloader(可能有多个)
+        private static readonly List<Downloader> DownloaderList = new List<Downloader>();
 
         // 当前正在使用的 SceneAssetRequest
         private static SceneAssetRequest _runningSceneAssetRequest;
@@ -621,29 +643,42 @@ namespace libx {
         }
 
         private static void OnReachablityChanged(NetworkReachability reachability) {
+            // 手机上关闭 wifi 和 4g
             if (reachability == NetworkReachability.NotReachable) {
+                // Assets.Pause()
                 Pause();
+            // ReachableViaCarrierDataNetwork  手机只开 4g
+            // ReachableViaLocalAreaNetwork 手机只开 wifi
             } else {
+                // 1. 先暂停
+                // Assets.Pause()
                 Pause();
+                // 2. 再取消暂停
+                // Assets.UnPause()
                 UnPause();
             }
         }
 
+        // Assets.Update()
+        // 总的 Dispatch
         private void Update() {
+            // 1. 先更新 Downloader
             UpdateDownloaders();
+            // 2. 再更新 AssetRequest
             UpdateAssets();
+            // 3. 再更新
             UpdateBundles();
         }
 
         // 更新
         private static void UpdateDownloaders() {
-            if (Downloaders.Count > 0) {
-                for (var i = 0; i < Downloaders.Count; ++i) {
-                    var downloader = Downloaders[i];
+            if (DownloaderList.Count > 0) {
+                for (var i = 0; i < DownloaderList.Count; ++i) {
+                    var downloader = DownloaderList[i];
                     downloader.Update();
                     if (downloader.isDone) {
                         Debug.LogFormat("RemoveDownloader:{0}", i);
-                        Downloaders.RemoveAt(i);
+                        DownloaderList.RemoveAt(i);
                         --i;
                     }
                 }
@@ -668,6 +703,7 @@ namespace libx {
                     }
 
                 } else {
+                    // 仅编辑器下
                     OnAssetLoaded(loadingAssetRequest.url);
 
                     if (!LoadedAssetRequestList.Contains(loadingAssetRequest)) {
@@ -680,12 +716,12 @@ namespace libx {
             }
 
             if (updateUnusedAssetsNow || updateUnusedAssetsImmediate) {
-                for (var i = 0; i < LoadedAssetRequestList.Count; ++i) {
-                    var request = LoadedAssetRequestList[i];
-                    request.UpdateRequires();
-                    if (request.IsUnused()) {
-                        if (!UnusedAssetRequestList.Contains(request)) {
-                            UnusedAssetRequestList.Add(request);
+                for (int i = 0; i < LoadedAssetRequestList.Count; ++i) {
+                    AssetRequest loadedAssetRequest = LoadedAssetRequestList[i];
+                    loadedAssetRequest.UpdateRequires();
+                    if (loadedAssetRequest.IsUnused()) {
+                        if (!UnusedAssetRequestList.Contains(loadedAssetRequest)) {
+                            UnusedAssetRequestList.Add(loadedAssetRequest);
                             LoadedAssetRequestList.RemoveAt(i);
                             --i;
                         }
@@ -696,12 +732,17 @@ namespace libx {
             }
 
             if (UnusedAssetRequestList.Count > 0) {
-                for (var i = 0; i < UnusedAssetRequestList.Count; ++i) {
-                    var request = UnusedAssetRequestList[i];
-                    OnAssetUnloaded(request.url);
-                    UsingAssetRequestDict.Remove(request.url);
-                    request.Unload();
-                    Debug.LogFormat("<color=red>[UnloadAsset]</color>:{0}", request.url);
+                for (int i = 0; i < UnusedAssetRequestList.Count; ++i) {
+                    AssetRequest unusedAssetRequest = UnusedAssetRequestList[i];
+
+                    // 仅编辑器下
+                    OnAssetUnloaded(unusedAssetRequest.url);
+
+                    UsingAssetRequestDict.Remove(unusedAssetRequest.url);
+
+                    unusedAssetRequest.Unload();
+
+                    Debug.LogFormat("<color=red>[UnloadAsset]</color>:{0}", unusedAssetRequest.url);
                 }
 
                 UnusedAssetRequestList.Clear();
@@ -709,23 +750,26 @@ namespace libx {
 
             // 处理正在加载的 SceneAssetRequest
             for (var i = 0; i < LoadingSceneAssetRequestSceneList.Count; ++i) {
-                SceneAssetRequest sceneAssetRequest = LoadingSceneAssetRequestSceneList[i];
+                SceneAssetRequest loadingSceneAssetRequest = LoadingSceneAssetRequestSceneList[i];
 
                 // 更新 正在加载的 SceneAssetRequest
-                if (sceneAssetRequest.Update()) {
+                if (loadingSceneAssetRequest.Update()) {
                     continue;
                 }
 
                 // 从正在加载的 SceneAssetRequest 中移除
                 LoadingSceneAssetRequestSceneList.RemoveAt(i);
 
-                if (!string.IsNullOrEmpty(sceneAssetRequest.error)) {
-                    Debug.LogErrorFormat("加载失败：{0}({1})", sceneAssetRequest.url, sceneAssetRequest.error);
-                    sceneAssetRequest.Release();
+                if (!string.IsNullOrEmpty(loadingSceneAssetRequest.error)) {
+                    Debug.LogErrorFormat("加载失败：{0}({1})", loadingSceneAssetRequest.url, loadingSceneAssetRequest.error);
+
+                    loadingSceneAssetRequest.Release();
                 } else {
                     // 添加到正在使用的 SceneAssetRequest
-                    UsingSceneAssetRequestList.Add(sceneAssetRequest);
-                    OnAssetLoaded(sceneAssetRequest.url);
+                    UsingSceneAssetRequestList.Add(loadingSceneAssetRequest);
+
+                    // 仅编辑器下
+                    OnAssetLoaded(loadingSceneAssetRequest.url);
                 }
 
                 --i;
@@ -741,7 +785,9 @@ namespace libx {
                 UsingSceneAssetRequestList.RemoveAt(i);
                 Debug.LogFormat("<color=red>[UnloadScene]</color>:{0}", sceneAssetRequest.url);
 
+                // 仅编辑器下
                 OnAssetUnloaded(sceneAssetRequest.url);
+
                 sceneAssetRequest.Unload();
 
                 RemoveUnusedAssets();

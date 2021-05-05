@@ -37,7 +37,7 @@ namespace libx {
                         // 根据 传进来 分包名 下载所有资源
                         if (Assets.DownloadPatchOrAll(new[] { patch.name }, out downloader)) {
 
-                            long totalSize = downloader.size;
+                            long totalSize = downloader.totalDownloadSize;
                             string tips = string.Format("总计需要下载 {0} 内容", Downloader.GetDisplaySize(totalSize));
 
                             MessageBox.Show("更新提示", tips, isDownload => {
@@ -63,7 +63,7 @@ namespace libx {
                                         LoadScene(patch);
                                     };
 
-
+                                    // 开始下载
                                     downloader.Start();
 
                                 } else {
